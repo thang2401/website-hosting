@@ -22,7 +22,7 @@ app.set("trust proxy", 1);
 ============================================================ */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "https://domanhhung.id.vn",
+    origin: "https://domanhhung.id.vn",
     credentials: true,
     // Thêm các headers cần thiết cho preflight requests (OPTIONS)
     allowedHeaders: ["Content-Type", "Authorization"],
