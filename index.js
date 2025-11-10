@@ -14,26 +14,29 @@ const connectDB = require("./config/db");
 const router = require("./routes");
 
 const app = express();
-// Đã sửa: Giữ lại trust proxy để fix lỗi Mixed Content
+
+// Giữ trust proxy để fix lỗi Mixed Content
 app.set("trust proxy", 1);
 
 /* ============================================================
-    1. CORS (Đã sửa để cho phép SameSite=None)
+    1. CORS (React frontend với credentials + preflight)
 ============================================================ */
-app.use(
-  cors({
-    origin: "https://domanhhung.id.vn",
-    credentials: true,
-    // Thêm các headers cần thiết cho preflight requests (OPTIONS)
-    allowedHeaders: ["Content-Type", "Authorization"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  })
-);
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://domanhhung.id.vn");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 
 /* ============================================================
     2. Middleware bảo mật cơ bản
 ============================================================ */
-// Giữ lại helmet, nhưng có thể cần tinh chỉnh nếu có lỗi Content-Security-Policy
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
@@ -41,10 +44,10 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 /* ============================================================
-3. Giới hạn tốc độ request chống DDoS
+    3. Giới hạn tốc độ request chống DDoS
 ============================================================ */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 phút
   max: 100,
   message: {
     success: false,
@@ -54,8 +57,30 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 /* ============================================================
-    3.5. WAF cơ bản (Giữ nguyên)
+    4. WAF cơ bản
 ============================================================ */
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(
+      (info) =>
+        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+    )
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs/error.log"),
+      level: "error",
+    }),
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs/combined.log"),
+    }),
+    new winston.transports.Console(),
+  ],
+});
+
+// Kiểm tra các pattern nghi ngờ tấn công
 app.use((req, res, next) => {
   const suspiciousPatterns = [
     "<script>",
@@ -74,7 +99,7 @@ app.use((req, res, next) => {
   if (isSuspicious) {
     const agent = useragent.parse(req.headers["user-agent"]);
     logger.warn(
-      ` WAF chặn truy cập nghi ngờ từ IP ${
+      `WAF chặn truy cập nghi ngờ từ IP ${
         req.ip
       }, Trình duyệt: ${agent.toString()}, URL: ${req.originalUrl}`
     );
@@ -83,37 +108,15 @@ app.use((req, res, next) => {
       message: "Yêu cầu của bạn bị hệ thống chặn do nghi ngờ tấn công.",
     });
   }
-
   next();
 });
 
 /* ============================================================
-    4. Logging (Winston + Morgan) (Giữ nguyên)
+    5. Logging (Morgan)
 ============================================================ */
 const logDir = path.join(__dirname, "logs");
 const fs = require("fs");
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
-
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-    winston.format.printf(
-      (info) =>
-        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
-    )
-  ),
-  transports: [
-    new winston.transports.File({
-      filename: path.join(logDir, "error.log"),
-      level: "error",
-    }),
-    new winston.transports.File({
-      filename: path.join(logDir, "combined.log"),
-    }),
-    new winston.transports.Console(),
-  ],
-});
 
 app.use(
   morgan("combined", {
@@ -122,12 +125,12 @@ app.use(
 );
 
 /* ============================================================
-    5. Routes API (Giữ nguyên)
+    6. Routes API
 ============================================================ */
 app.use("/api", router);
 
 /* ============================================================
-    6. Middleware xử lý lỗi toàn cục (Giữ nguyên)
+    7. Middleware xử lý lỗi toàn cục
 ============================================================ */
 app.use((err, req, res, next) => {
   logger.error(`${err.message} - ${req.originalUrl}`);
@@ -139,7 +142,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ============================================================
-    7. Khởi chạy Server & Kết nối Database (Giữ nguyên)
+    8. Khởi chạy Server & Kết nối Database
 ============================================================ */
 const PORT = process.env.PORT || 8080;
 
@@ -148,7 +151,7 @@ const PORT = process.env.PORT || 8080;
     await connectDB();
     console.log("✅ Kết nối MongoDB thành công");
     app.listen(PORT, () => {
-      console.log(`🚀 Server đang chạy tại cổng ${PORT} (HTTP)`);
+      console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
     });
   } catch (error) {
     logger.error(`❌ Lỗi kết nối MongoDB: ${error.message}`);
