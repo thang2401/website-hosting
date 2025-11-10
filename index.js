@@ -14,21 +14,26 @@ const connectDB = require("./config/db");
 const router = require("./routes");
 
 const app = express();
+// Đã sửa: Giữ lại trust proxy để fix lỗi Mixed Content
 app.set("trust proxy", 1);
 
 /* ============================================================
-    1. CORS
+    1. CORS (Đã sửa để cho phép SameSite=None)
 ============================================================ */
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "https://domanhhung.id.vn",
     credentials: true,
+    // Thêm các headers cần thiết cho preflight requests (OPTIONS)
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
 
 /* ============================================================
-   2. Middleware bảo mật cơ bản
+    2. Middleware bảo mật cơ bản
 ============================================================ */
+// Giữ lại helmet, nhưng có thể cần tinh chỉnh nếu có lỗi Content-Security-Policy
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
@@ -49,7 +54,7 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 /* ============================================================
-   3.5. WAF cơ bản
+    3.5. WAF cơ bản (Giữ nguyên)
 ============================================================ */
 app.use((req, res, next) => {
   const suspiciousPatterns = [
@@ -83,7 +88,7 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
-    4. Logging (Winston + Morgan)
+    4. Logging (Winston + Morgan) (Giữ nguyên)
 ============================================================ */
 const logDir = path.join(__dirname, "logs");
 const fs = require("fs");
@@ -117,12 +122,12 @@ app.use(
 );
 
 /* ============================================================
-    5. Routes API
+    5. Routes API (Giữ nguyên)
 ============================================================ */
 app.use("/api", router);
 
 /* ============================================================
-    6. Middleware xử lý lỗi toàn cục
+    6. Middleware xử lý lỗi toàn cục (Giữ nguyên)
 ============================================================ */
 app.use((err, req, res, next) => {
   logger.error(`${err.message} - ${req.originalUrl}`);
@@ -134,7 +139,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ============================================================
-   7. Khởi chạy Server & Kết nối Database
+    7. Khởi chạy Server & Kết nối Database (Giữ nguyên)
 ============================================================ */
 const PORT = process.env.PORT || 8080;
 
