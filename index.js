@@ -1,5 +1,5 @@
 const express = require("express");
-const cors = require("cors"); // <-- ĐÃ KHÔI PHỤC MODULE CẦN THIẾT
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -9,6 +9,7 @@ const morgan = require("morgan");
 const winston = require("winston");
 const path = require("path");
 const useragent = require("useragent");
+const fs = require("fs"); // Import fs
 require("dotenv").config();
 const connectDB = require("./config/db");
 const router = require("./routes");
@@ -19,12 +20,15 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* ============================================================
-    1. CORS (Sử dụng lại module 'cors' chuẩn)
+    1. CORS (Sử dụng module 'cors' chuẩn với origin là mảng)
 ============================================================ */
-// Dùng lại module 'cors' để tránh lỗi Bad Gateway
 app.use(
   cors({
-    origin: ["https://domanhhung.id.vn", "https://www.domanhhung.id.vn"], // Thêm cả www nếu cần
+    // Sử dụng mảng để hỗ trợ cả miền gốc và www (nếu cần), VÀ đảm bảo URL là HTTPS
+    origin: [
+      process.env.FRONTEND_URL || "https://domanhhung.id.vn",
+      "https://www.domanhhung.id.vn",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -44,7 +48,7 @@ app.use(cookieParser());
     3. Giới hạn tốc độ request chống DDoS
 ============================================================ */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 phút
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: {
     success: false,
@@ -54,10 +58,30 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 /* ============================================================
-    4. WAF cơ bản (Giữ nguyên)
+    4. WAF cơ bản và Logging (Winston)
 ============================================================ */
+const logDir = path.join(__dirname, "logs");
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir); // Đảm bảo thư mục log tồn tại
+
 const logger = winston.createLogger({
-  // ... logger config (Giữ nguyên)
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.printf(
+      (info) =>
+        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+    )
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: path.join(logDir, "error.log"),
+      level: "error",
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, "combined.log"),
+    }),
+    new winston.transports.Console(),
+  ],
 });
 
 // Kiểm tra các pattern nghi ngờ tấn công
@@ -92,12 +116,8 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
-    5. Logging (Morgan) (Giữ nguyên)
+    5. Logging (Morgan) 
 ============================================================ */
-const logDir = path.join(__dirname, "logs");
-const fs = require("fs");
-if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
-
 app.use(
   morgan("combined", {
     stream: { write: (message) => logger.info(message.trim()) },
@@ -105,12 +125,12 @@ app.use(
 );
 
 /* ============================================================
-    6. Routes API (Giữ nguyên)
+    6. Routes API
 ============================================================ */
 app.use("/api", router);
 
 /* ============================================================
-    7. Middleware xử lý lỗi toàn cục (Giữ nguyên)
+    7. Middleware xử lý lỗi toàn cục
 ============================================================ */
 app.use((err, req, res, next) => {
   logger.error(`${err.message} - ${req.originalUrl}`);
@@ -122,7 +142,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ============================================================
-    8. Khởi chạy Server & Kết nối Database (Giữ nguyên)
+    8. Khởi chạy Server & Kết nối Database
 ============================================================ */
 const PORT = process.env.PORT || 8080;
 
@@ -131,7 +151,6 @@ const PORT = process.env.PORT || 8080;
     await connectDB();
     console.log("✅ Kết nối MongoDB thành công");
     app.listen(PORT, () => {
-      // Đã xóa (HTTP) vì giờ đây nó chạy sau HTTPS proxy của Railway
       console.log(`🚀 Server đang chạy tại cổng ${PORT}`);
     });
   } catch (error) {
