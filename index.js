@@ -14,13 +14,14 @@ const connectDB = require("./config/db");
 const router = require("./routes");
 
 const app = express();
+app.set("trust proxy", 1);
 
 /* ============================================================
     1. CORS
 ============================================================ */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "https://domanhhung.id.vn",
     credentials: true,
   })
 );
