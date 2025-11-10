@@ -2,7 +2,10 @@ const express = require("express");
 
 const router = express.Router();
 
-const userSignUpController = require("../controller/user/userSignUp");
+const {
+  userSignUpController,
+  verifySignUpOTP,
+} = require("../controller/user/userSignUp");
 const userSignInController = require("../controller/user/userSignIn");
 const userDetailsController = require("../controller/user/userDetails");
 const authToken = require("../middleware/authToken");
@@ -31,6 +34,7 @@ const deleteUser = require("../controller/user/deleteUser");
 const MyOder = require("../controller/user/Oder");
 const deleteOrder = require("../controller/user/deleteOrder");
 const updateOrderStatus = require("../controller/product/updateOrderStatus");
+
 const {
   forgotPassword,
   resetPassword,
@@ -38,6 +42,7 @@ const {
 } = require("../controller/forgotpass/forgotPasswordController");
 const { changePassword } = require("../controller/user/changePass");
 
+router.post("/verify-otp", verifySignUpOTP);
 router.post("/signup", userSignUpController);
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);

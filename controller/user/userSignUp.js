@@ -1,83 +1,80 @@
+const User = require("../../models/userModel");
 const bcrypt = require("bcryptjs");
-const userModel = require("../../models/userModel");
-const nodemailer = require("nodemailer");
+const { sendOTP } = require("../../untils/sendOTP");
 
 const userSignUpController = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password)
-      return res.status(400).json({
+      return res.json({
         success: false,
-        message: "Vui lòng cung cấp đầy đủ thông tin",
+        message: "Vui lòng nhập đầy đủ thông tin",
       });
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email))
-      return res
-        .status(400)
-        .json({ success: false, message: "Email không hợp lệ" });
+      return res.json({ success: false, message: "Email không hợp lệ" });
 
-    const existingUser = await userModel.findOne({ email });
+    const existingUser = await User.findOne({ email });
     if (existingUser)
-      return res
-        .status(400)
-        .json({ success: false, message: "Email đã được sử dụng" });
+      return res.json({ success: false, message: "Email đã được sử dụng" });
 
-    // Mật khẩu mạnh
-    if (
-      password.length < 12 ||
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password) ||
-      !/[0-9]/.test(password) ||
-      !/[\W_]/.test(password)
-    )
-      return res
-        .status(400)
-        .json({ success: false, message: "Mật khẩu yếu, vui lòng thử lại" });
+    const strongPasswordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{12,}$/;
+    if (!strongPasswordRegex.test(password))
+      return res.json({ success: false, message: "Mật khẩu yếu" });
 
-    const hashPassword = bcrypt.hashSync(password, 10);
+    const hashPassword = await bcrypt.hash(password, 10);
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = Math.floor(10000 + Math.random() * 90000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
 
-    const user = new userModel({
+    const user = new User({
       name,
       email,
       password: hashPassword,
       otp,
       otpExpires,
+      otpSignUp: true,
     });
     await user.save();
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    });
+    await sendOTP(email, otp);
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Mã OTP xác thực email",
-      html: `<p>Mã OTP của bạn là: <b>${otp}</b>. Hết hạn trong 5 phút.</p>`,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "OTP đã được gửi tới email",
+      message: "Đăng ký thành công. OTP đã gửi tới email",
       email,
       userId: user._id,
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({
-      success: false,
-      message: "Đăng ký thất bại",
-      error: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
 
-module.exports = userSignUpController;
+const verifySignUpOTP = async (req, res) => {
+  try {
+    const { userId, otp } = req.body;
+    const user = await User.findById(userId);
+
+    if (!user || user.otp !== otp || user.otpExpires < Date.now())
+      return res.json({
+        success: false,
+        message: "OTP không hợp lệ hoặc đã hết hạn",
+      });
+
+    user.otp = null;
+    user.otpExpires = null;
+    user.otpSignUp = false;
+    await user.save();
+
+    res.json({ success: true, message: "Xác thực email thành công" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+module.exports = { userSignUpController, verifySignUpOTP };
