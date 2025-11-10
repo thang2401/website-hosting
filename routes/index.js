@@ -12,28 +12,31 @@ const authToken = require("../middleware/authToken");
 const userLogout = require("../controller/user/userLogout");
 const allUsers = require("../controller/user/allUsers");
 const updateUser = require("../controller/user/updateUser");
+const deleteUser = require("../controller/user/deleteUser"); // Đảm bảo import đúng
+
 const UploadProductController = require("../controller/product/uploadProduct");
 const getProductController = require("../controller/product/getProduct");
 const updateProductController = require("../controller/product/updateProduct");
 const getCategoryProduct = require("../controller/product/getCategoryProductOne");
 const getCategoryWiseProduct = require("../controller/product/getCategoryWiseProduct");
 const getProductDetails = require("../controller/product/getProductDetails");
+const deleteProductController = require("../controller/product/deleteProductController");
+const updateOrderStatus = require("../controller/product/updateOrderStatus");
+
 const addToCartController = require("../controller/user/addToCartController");
 const countAddToCartProduct = require("../controller/user/countAddToCartProduct");
 const addToCartViewProduct = require("../controller/user/addToCartViewProduct");
 const updateAddToCartProduct = require("../controller/user/updateAddToCartProduct");
 const deleteAddToCartProduct = require("../controller/user/deleteAddToCartProduct");
-const searchProduct = require("../controller/product/searchProduct");
-const filterProductController = require("../controller/product/filterProduct");
-const deleteProductController = require("../controller/product/deleteProductController");
 const cleanCart = require("../controller/user/cleanCart");
 const payment = require("../controller/user/payment");
 const ConfirmPayment = require("../controller/user/confirm-payment");
 const getAllOrders = require("../controller/user/getAllOrders");
-const deleteUser = require("../controller/user/deleteUser");
 const MyOder = require("../controller/user/Oder");
 const deleteOrder = require("../controller/user/deleteOrder");
-const updateOrderStatus = require("../controller/product/updateOrderStatus");
+
+const searchProduct = require("../controller/product/searchProduct");
+const filterProductController = require("../controller/product/filterProduct");
 
 const {
   forgotPassword,
@@ -42,19 +45,41 @@ const {
 } = require("../controller/forgotpass/forgotPasswordController");
 const { changePassword } = require("../controller/user/changePass");
 
-router.post("/verify-otp", verifySignUpOTP);
+// DÒNG BỊ LỖI ĐÃ ĐƯỢC LOẠI BỎ: const verifyOTPController = require("../controller/user/verifyOTPController");
+
+// ============================================================
+// AUTH & USER
+// ============================================================
 router.post("/signup", userSignUpController);
+router.post("/verify-otp", verifySignUpOTP); // Giữ lại verify OTP cho đăng ký
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);
 router.get("/userLogout", userLogout);
 
-//admin
+// ADMIN & USERS
 router.get("/all-user", authToken, allUsers);
 router.post("/update-user", authToken, updateUser);
+router.delete("/delete-user/:id", authToken, deleteUser); // Thêm authToken cho bảo mật
 
-router.delete("/delete-user/:id", deleteUser);
+// USER CART & ORDERS
+router.post("/addtocart", authToken, addToCartController);
+router.get("/countAddToCartProduct", authToken, countAddToCartProduct);
+router.get("/view-card-product", authToken, addToCartViewProduct);
+router.post("/update-cart-product", authToken, updateAddToCartProduct);
+router.post("/delete-cart-product", authToken, deleteAddToCartProduct);
+router.delete("/clean-Cart", authToken, cleanCart);
 
-//product
+// PAYMENT
+router.post("/payment", authToken, payment);
+router.post("/confirm-payment", authToken, ConfirmPayment);
+router.get("/orders", getAllOrders);
+router.get("/user/:userId", MyOder);
+router.delete("/orders/:id", authToken, deleteOrder); // Thêm authToken cho bảo mật
+router.put("/orders/:id/status", authToken, updateOrderStatus); // Thêm authToken cho bảo mật
+
+// ============================================================
+// PRODUCT
+// ============================================================
 router.post("/upload-product", authToken, UploadProductController);
 router.get("/get-product", getProductController);
 router.post("/update-product", authToken, updateProductController);
@@ -63,28 +88,16 @@ router.post("/category-product", getCategoryWiseProduct);
 router.post("/product-details", getProductDetails);
 router.get("/search", searchProduct);
 router.post("/filter-product", filterProductController);
-router.delete("/products/:id", deleteProductController);
-router.post("/payment", authToken, payment);
-router.post("/confirm-payment", authToken, ConfirmPayment);
-router.delete("/clean-Cart", authToken, cleanCart);
-router.get("/orders", getAllOrders);
+router.delete("/products/:id", authToken, deleteProductController); // Thêm authToken
 
-//user
-router.post("/addtocart", authToken, addToCartController);
-router.get("/countAddToCartProduct", authToken, countAddToCartProduct);
-router.get("/view-card-product", authToken, addToCartViewProduct);
-router.post("/update-cart-product", authToken, updateAddToCartProduct);
-router.post("/delete-cart-product", authToken, deleteAddToCartProduct);
-router.get("/user/:userId", MyOder);
-router.delete("/orders/:id", deleteOrder);
-
-// forgotpass
+// ============================================================
+// PASSWORD/2FA
+// ============================================================
 router.post("/forgot-password", forgotPassword);
-router.post("/verify-otp", verifyOTP);
+router.post("/verify-otp", verifyOTP); // Giữ lại verify OTP cho quên mật khẩu
 router.post("/reset-password", resetPassword);
 router.post("/change-password", authToken, changePassword);
-// Thay đổi dòng sau (hiện tại bạn dùng POST)
-router.put("/orders/:id/status", updateOrderStatus);
-const verifyOTPController = require("../controller/user/verifyOTPController");
-router.post("/verify-otp", verifyOTPController);
+
+// DÒNG BỊ LỖI TRÙNG LẶP ĐÃ ĐƯỢC LOẠI BỎ: router.post("/verify-otp", verifyOTPController);
+
 module.exports = router;
