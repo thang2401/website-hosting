@@ -1,75 +1,83 @@
-const userModel = require("../../models/userModel");
 const bcrypt = require("bcryptjs");
-const emailExistence = require("email-existence");
+const userModel = require("../../models/userModel");
+const nodemailer = require("nodemailer");
 
-async function userSignUpController(req, res) {
+const userSignUpController = async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { name, email, password } = req.body;
 
-    // Kiểm tra dữ liệu đầu vào
-    if (!email) throw new Error("Vui lòng cung cấp email");
-    if (!password) throw new Error("Vui lòng cung cấp mật khẩu");
-    if (!name) throw new Error("Vui lòng cung cấp tên");
-
-    // Kiểm tra định dạng email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) throw new Error("Email không hợp lệ");
-
-    // Kiểm tra người dùng đã tồn tại
-    const user = await userModel.findOne({ email });
-    if (user) throw new Error("Người dùng đã tồn tại");
-
-    // 🔍 Kiểm tra email thực tế
-    await new Promise((resolve, reject) => {
-      emailExistence.check(email, (error, response) => {
-        if (error) {
-          reject("Lỗi khi kiểm tra email thực tế");
-        } else if (!response) {
-          reject("Email không tồn tại thực tế");
-        } else {
-          resolve();
-        }
+    if (!name || !email || !password)
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng cung cấp đầy đủ thông tin",
       });
-    });
 
-    // 🔐 Kiểm tra mật khẩu mạnh
-    if (password.length < 12)
-      throw new Error("Mật khẩu phải dài ít nhất 12 ký tự");
-    if (!/[A-Z]/.test(password))
-      throw new Error("Mật khẩu phải có ít nhất 1 chữ hoa");
-    if (!/[a-z]/.test(password))
-      throw new Error("Mật khẩu phải có ít nhất 1 chữ thường");
-    if (!/[0-9]/.test(password))
-      throw new Error("Mật khẩu phải có ít nhất 1 số");
-    if (!/[\W_]/.test(password))
-      throw new Error("Mật khẩu phải có ít nhất 1 ký tự đặc biệt");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email))
+      return res
+        .status(400)
+        .json({ success: false, message: "Email không hợp lệ" });
 
-    // Mã hóa mật khẩu
-    const salt = bcrypt.genSaltSync(10);
-    const hashPassword = bcrypt.hashSync(password, salt);
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser)
+      return res
+        .status(400)
+        .json({ success: false, message: "Email đã được sử dụng" });
 
-    // Tạo payload lưu vào DB
-    const payload = {
+    // Mật khẩu mạnh
+    if (
+      password.length < 12 ||
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/[0-9]/.test(password) ||
+      !/[\W_]/.test(password)
+    )
+      return res
+        .status(400)
+        .json({ success: false, message: "Mật khẩu yếu, vui lòng thử lại" });
+
+    const hashPassword = bcrypt.hashSync(password, 10);
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+
+    const user = new userModel({
       name,
       email,
-      role: "GENERAL",
       password: hashPassword,
+      otp,
+      otpExpires,
+    });
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Mã OTP xác thực email",
+      html: `<p>Mã OTP của bạn là: <b>${otp}</b>. Hết hạn trong 5 phút.</p>`,
     };
 
-    const userData = new userModel(payload);
-    const saveUser = await userData.save();
+    await transporter.sendMail(mailOptions);
 
-    res.status(201).json({
-      data: saveUser,
+    res.status(200).json({
       success: true,
-      message: "Đăng ký thành công và email hợp lệ!",
+      message: "OTP đã được gửi tới email",
+      email,
+      userId: user._id,
     });
   } catch (err) {
-    res.status(400).json({
+    console.log(err);
+    res.status(500).json({
       success: false,
-      message: err.message || err,
+      message: "Đăng ký thất bại",
+      error: err.message,
     });
   }
-}
+};
 
 module.exports = userSignUpController;

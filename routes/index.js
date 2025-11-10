@@ -80,5 +80,6 @@ router.post("/reset-password", resetPassword);
 router.post("/change-password", authToken, changePassword);
 // Thay đổi dòng sau (hiện tại bạn dùng POST)
 router.put("/orders/:id/status", updateOrderStatus);
-
+const verifyOTPController = require("../controller/user/verifyOTPController");
+router.post("/verify-otp", verifyOTPController);
 module.exports = router;

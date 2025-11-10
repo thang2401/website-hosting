@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const userSchema = new mongoose.Schema(
   {
     name: String,
@@ -9,13 +10,12 @@ const userSchema = new mongoose.Schema(
     },
     password: String,
     profilePic: String,
-    role: String,
+    role: { type: String, default: "GENERAL" },
     otp: String,
     otpExpires: Date,
+    otpSignUp: { type: Boolean, default: false }, // trạng thái OTP đã xác thực
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const userModel = mongoose.model("user", userSchema);
