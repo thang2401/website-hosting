@@ -35,6 +35,8 @@ async function userSignInController(req, res) {
       const tokenOption = {
         httpOnly: true,
         secure: true,
+        // ✅ ĐÃ SỬA LỖI 401: Bắt buộc phải có để gửi cookie giữa các miền/subdomain qua HTTPS
+        sameSite: "None",
       };
 
       res.cookie("token", token, tokenOption).status(200).json({
