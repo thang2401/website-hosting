@@ -3,9 +3,12 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  userSignUpController,
-  verifySignUpOTP,
+  sendOtpToSignUpController,
+  finalSignUpController,
 } = require("../controller/user/userSignUp");
+
+// ... (Các imports khác)
+
 const userSignInController = require("../controller/user/userSignIn");
 const userDetailsController = require("../controller/user/userDetails");
 const authToken = require("../middleware/authToken");
@@ -50,8 +53,9 @@ const { changePassword } = require("../controller/user/changePass");
 // ============================================================
 // AUTH & USER
 // ============================================================
-router.post("/signup", userSignUpController);
-router.post("/verify-otp", verifySignUpOTP); // Giữ lại verify OTP cho đăng ký
+// --- ROUTES ĐĂNG KÝ MỚI ---
+router.post("/send-otp-to-signup", sendOtpToSignUpController);
+router.post("/final-signup", finalSignUpController);
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);
 router.get("/userLogout", userLogout);
