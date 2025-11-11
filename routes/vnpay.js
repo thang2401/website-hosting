@@ -19,9 +19,8 @@ function sortObject(obj) {
 // =========================================================
 router.post("/create_payment_url", (req, res) => {
   // Giả định dữ liệu nhận được từ React
-  const { amount, orderInfo, bankCode } = req.body;
+  const { amount, orderInfo: receivedOrderInfo, bankCode } = req.body; // Đổi tên biến để sử dụng OrderInfo đã làm sạch // Lấy thông tin cấu hình từ biến môi trường
 
-  // Lấy thông tin cấu hình từ biến môi trường
   const tmnCode = process.env.VNP_TMN_CODE;
   const secretKey = process.env.VNP_HASH_SECRET;
   const vnpUrl = process.env.VNP_URL;
@@ -33,16 +32,18 @@ router.post("/create_payment_url", (req, res) => {
   const currCode = "VND";
   const locale = "vn";
 
-  const ipAddr = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+  const ipAddr = req.headers["x-forwarded-for"] || req.connection.remoteAddress; // ⭐ FIX 1: Làm tròn và chuyển đổi amount sang đồng (cents)
 
+  const vnp_Amount_SAFE = Math.round(amount) * 100; // ⭐ FIX 2: Rút gọn OrderInfo để tránh lỗi 404 do URL quá dài/ký tự đặc biệt
+  const vnp_OrderInfo_SAFE = `Thanh toan DH-${orderId}`;
   let vnp_Params = {
     vnp_Version: "2.1.0",
     vnp_Command: "pay",
     vnp_TmnCode: tmnCode,
-    vnp_Amount: amount * 100, // VNPay yêu cầu đơn vị là ĐỒNG
+    vnp_Amount: vnp_Amount_SAFE, // Sử dụng giá trị đã làm sạch
     vnp_CurrCode: currCode,
     vnp_TxnRef: orderId,
-    vnp_OrderInfo: orderInfo,
+    vnp_OrderInfo: vnp_OrderInfo_SAFE, // Sử dụng giá trị đã rút gọn
     vnp_OrderType: "other",
     vnp_Locale: locale,
     vnp_ReturnUrl: returnUrl,
@@ -52,20 +53,19 @@ router.post("/create_payment_url", (req, res) => {
 
   if (bankCode && bankCode !== "") {
     vnp_Params["vnp_BankCode"] = bankCode;
-  }
+  } // 2. Sắp xếp các tham số và tạo Secure Hash
 
-  // 2. Sắp xếp các tham số và tạo Secure Hash
   vnp_Params = sortObject(vnp_Params);
   const signData = querystring.stringify(vnp_Params, { encode: false });
   const hmac = crypto.createHmac("sha256", secretKey);
-  const signed = hmac.update(signData).digest("hex");
+  const signed = hmac.update(signData).digest("hex"); // 3. Tạo URL cuối cùng
 
-  // 3. Tạo URL cuối cùng
   vnp_Params["vnp_SecureHash"] = signed;
   const paymentUrl =
     vnpUrl + "?" + querystring.stringify(vnp_Params, { encode: true });
 
-  // 4. Trả về URL thanh toán cho React
+  console.log("Generated VNPay URL:", paymentUrl); // Ghi log để kiểm tra // 4. Trả về URL thanh toán cho React
+
   res.json({
     paymentUrl: paymentUrl,
     orderId: orderId,
@@ -79,19 +79,16 @@ router.get("/vnpay_return", (req, res) => {
   let vnp_Params = req.query;
   const secureHash = vnp_Params["vnp_SecureHash"];
   const secretKey = process.env.VNP_HASH_SECRET;
-  const reactReturnUrl = process.env.VNP_RETURN_URL; // http://localhost:3000/payment-result
+  const reactReturnUrl = process.env.VNP_RETURN_URL; // 1. Loại bỏ các tham số không dùng để tạo hash
 
-  // 1. Loại bỏ các tham số không dùng để tạo hash
   delete vnp_Params["vnp_SecureHash"];
-  delete vnp_Params["vnp_SecureHashType"];
+  delete vnp_Params["vnp_SecureHashType"]; // 2. Sắp xếp và tạo lại chữ ký để xác thực
 
-  // 2. Sắp xếp và tạo lại chữ ký để xác thực
   vnp_Params = sortObject(vnp_Params);
   const signData = querystring.stringify(vnp_Params, { encode: false });
   const hmac = crypto.createHmac("sha256", secretKey);
-  const signed = hmac.update(signData).digest("hex");
+  const signed = hmac.update(signData).digest("hex"); // 3. Xử lý logic
 
-  // 3. Xử lý logic
   if (secureHash === signed) {
     // Chữ ký hợp lệ
     const RspCode = vnp_Params["vnp_ResponseCode"];
