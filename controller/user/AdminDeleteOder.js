@@ -1,4 +1,4 @@
-const Order = require("../../models/orderModel"); // model Order
+const Order = require("../../models/Order"); // model Order
 
 // Xóa đơn hàng theo _id
 const deleteOrderController = async (req, res) => {
