@@ -1,22 +1,27 @@
-const Order = require("../../models/Order");
+const Order = require("../../models/orderModel"); // model Order
 
-const deleteOrder = async (req, res) => {
+// Xóa đơn hàng theo _id
+const deleteOrderController = async (req, res) => {
   try {
-    const orderId = req.params.id;
+    const { id } = req.params;
 
-    const order = await Order.findById(orderId);
+    // Kiểm tra xem đơn hàng có tồn tại không
+    const order = await Order.findById(id);
     if (!order) {
       return res
         .status(404)
-        .json({ success: false, message: "Đơn hàng không tồn tại" });
+        .json({ success: false, message: "Không tìm thấy đơn hàng!" });
     }
 
-    await order.remove();
-    res.json({ success: true, message: "Đơn hàng đã được xóa" });
+    await Order.findByIdAndDelete(id);
+
+    res.json({ success: true, message: "Đã xóa đơn hàng thành công!" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Lỗi khi xóa đơn hàng" });
+    console.error("❌ Lỗi xóa đơn hàng:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server khi xóa đơn hàng!" });
   }
 };
 
-module.exports = deleteOrder;
+module.exports = deleteOrderController;
