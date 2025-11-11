@@ -107,7 +107,7 @@ router.post("/change-password", authToken, changePassword);
 const isAdmin = require("../middleware/isAdmin");
 const deleteOrderController = require("../controller/user/AdminDeleteOder");
 
-router.delete("/delete-orders/:id", isAdmin, deleteOrderController);
+router.delete("/delete-orders/:id", deleteOrderController);
 
 // DÒNG BỊ LỖI TRÙNG LẶP ĐÃ ĐƯỢC LOẠI BỎ: router.post("/verify-otp", verifyOTPController);
 
