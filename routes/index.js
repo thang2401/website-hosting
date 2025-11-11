@@ -104,6 +104,10 @@ router.post("/forgot-password", forgotPassword);
 router.post("/verify-otp", verifyOTP); // Giữ lại verify OTP cho quên mật khẩu
 router.post("/reset-password", resetPassword);
 router.post("/change-password", authToken, changePassword);
+const isAdmin = require("../middleware/isAdmin");
+const AdminDeleteOrder = require("../controller/user/AdminDeleteOder");
+
+router.delete("/delete-orders/:id", authToken, isAdmin, AdminDeleteOrder);
 
 // DÒNG BỊ LỖI TRÙNG LẶP ĐÃ ĐƯỢC LOẠI BỎ: router.post("/verify-otp", verifyOTPController);
 
