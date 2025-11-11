@@ -1,6 +1,6 @@
 // backend/controllers/userController.js
-const User = require("../models/userModel");
-const { sendOTP } = require("../utils/sendOTP");
+const User = require("../../models/userModel");
+const { sendOTP } = require("../../untils/sendOTP");
 const bcrypt = require("bcryptjs");
 
 // password strong check
