@@ -1,6 +1,6 @@
-const User = require("../models/userModel");
+const User = require("../../models/userModel");
 const bcrypt = require("bcryptjs");
-const { sendOTP } = require("../utils/sendOTP");
+const { sendOTP } = require("../../untils/sendOTP");
 const jwt = require("jsonwebtoken");
 
 // --- Gửi OTP để đăng ký ---
