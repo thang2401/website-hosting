@@ -3,8 +3,8 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  sendOtpToSignUpController,
-  finalSignUpController,
+  sendOtpToSignUp,
+  finalSignUp,
 } = require("../controller/user/userSignUp");
 
 // ... (Các imports khác)
@@ -54,8 +54,8 @@ const { changePassword } = require("../controller/user/changePass");
 // AUTH & USER
 // ============================================================
 // --- ROUTES ĐĂNG KÝ MỚI ---
-router.post("/send-otp-to-signup", sendOtpToSignUpController);
-router.post("/final-signup", finalSignUpController);
+router.post("/send-otp-to-signup", sendOtpToSignUp);
+router.post("/final-signup", finalSignUp);
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);
 router.get("/userLogout", userLogout);
