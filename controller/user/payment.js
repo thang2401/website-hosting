@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Order = require("../../models/Order");
 
 const payment = async (req, res) => {
@@ -10,8 +11,23 @@ const payment = async (req, res) => {
         .json({ success: false, message: "Dữ liệu không đầy đủ" });
     }
 
-    await Order.create({ userId, name, phone, address, items });
-    return res.json({ success: true });
+    // Convert userId & productId sang ObjectId
+    const formattedItems = items.map((i) => ({
+      productId: mongoose.Types.ObjectId(i.productId),
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+    }));
+
+    const order = await Order.create({
+      userId: mongoose.Types.ObjectId(userId),
+      name,
+      phone,
+      address,
+      items: formattedItems,
+    });
+
+    return res.json({ success: true, orderId: order._id });
   } catch (error) {
     console.error("Lỗi khi lưu đơn hàng:", error);
     return res.status(500).json({ success: false, message: "Lỗi máy chủ" });
