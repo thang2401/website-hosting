@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     role: { type: String, default: "GENERAL" },
     otp: String,
     otpExpires: Date,
-    otpSignUp: { type: Boolean, default: false }, // trạng thái OTP đã xác thực
+    otpSignUp: { type: Boolean, default: false }, // True = chưa hoàn tất signup
   },
   { timestamps: true }
 );
