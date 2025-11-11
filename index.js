@@ -16,6 +16,7 @@ const router = require("./routes");
 const vnpayRouter = require("./routes/vnpay");
 
 const app = express();
+app.set("trust proxy", true);
 
 // =======================
 // 1. CORS chuẩn cho React
