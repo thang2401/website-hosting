@@ -1,15 +1,17 @@
-// backend/controllers/userController.js
 const User = require("../../models/userModel");
 const { sendOTP } = require("../../untils/sendOTP");
 const bcrypt = require("bcryptjs");
 
-// password strong check
+// Kiểm tra mật khẩu mạnh
 const isStrongPassword = (pwd) => {
   const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&()[\]{}^#<>]).{12,}$/;
   return re.test(pwd);
 };
 
+// =======================================================
 // POST /api/send-otp-to-signup
+// Bước 1: Gửi OTP và tạo/cập nhật user tạm
+// =======================================================
 const sendOtpForSignup = async (req, res) => {
   try {
     const { email } = req.body;
@@ -18,15 +20,30 @@ const sendOtpForSignup = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Email không được để trống" });
 
-    // nếu user đã verified (đã hoàn tất signup) => báo lỗi
     const existing = await User.findOne({ email });
+
+    // ✅ Kiểm tra 1: Đã đăng ký hoàn tất chưa?
     if (existing && existing.verified) {
       return res
         .status(400)
         .json({ success: false, message: "Email này đã được đăng ký" });
     }
 
-    // tạo hoặc cập nhật user tạm
+    // ✅ Kiểm tra 2: Đã xác thực OTP chưa? (otpSignUp=false nhưng chưa verified)
+    // Nếu user đã qua bước 2, chặn gửi lại OTP, yêu cầu đặt mật khẩu
+    if (
+      existing &&
+      !existing.verified &&
+      existing.otpExpires === null &&
+      existing.otp === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Email đã xác thực OTP, vui lòng hoàn tất bước đặt mật khẩu.",
+      });
+    }
+
+    // Tạo và lưu OTP mới
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -36,7 +53,7 @@ const sendOtpForSignup = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // gửi email (bắt lỗi riêng)
+    // Gửi email
     try {
       await sendOTP(email, otp);
     } catch (err) {
@@ -60,7 +77,10 @@ const sendOtpForSignup = async (req, res) => {
   }
 };
 
+// =======================================================
 // POST /api/verify-otp
+// Bước 2: Xác thực OTP
+// =======================================================
 const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -75,6 +95,13 @@ const verifyOtp = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Email chưa được gửi OTP" });
 
+    // ✅ Kiểm tra: Phải đang trong quá trình đăng ký (otpSignUp=true)
+    if (!user.otpSignUp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Yêu cầu xác thực không hợp lệ." });
+    }
+
     if (
       !user.otp ||
       user.otp !== otp ||
@@ -86,12 +113,11 @@ const verifyOtp = async (req, res) => {
         .json({ success: false, message: "OTP không hợp lệ hoặc đã hết hạn" });
     }
 
-    // mark verified for signup-step, clear otp but keep verified flag until setPassword completes?
-    // Here set a flag `otpVerifiedForSignup` by using verified = false + otpSignUp true.
-    // Simpler: set otpSignUp=false and set a temp flag 'canSetPassword' -> but to keep DB simple, we'll set verified:true AFTER set-password succeeds.
-    // We'll set a short-lived marker in DB: otp = null, otpExpires = null, otpSignUp stays true, return success
+    // ✅ SỬA LỖ HỔNG: TẮT cờ otpSignUp sau khi xác thực thành công
+    // Việc này ngăn người dùng gửi lại OTP, và cho phép bước setPassword
     user.otp = null;
     user.otpExpires = null;
+    user.otpSignUp = false; // 👈 TẮT CỜ
     await user.save();
 
     return res.json({ success: true, message: "OTP hợp lệ", userId: user._id });
@@ -103,7 +129,10 @@ const verifyOtp = async (req, res) => {
   }
 };
 
+// =======================================================
 // POST /api/set-password
+// Bước 3: Đặt mật khẩu và hoàn tất đăng ký
+// =======================================================
 const setPassword = async (req, res) => {
   try {
     const { email, name, password } = req.body;
@@ -126,18 +155,28 @@ const setPassword = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User không tồn tại" });
 
-    // ensure user previously requested OTP (otpSignUp true) - prevents arbitrary set password
-    if (!user.otpSignUp) {
+    // ✅ Kiểm tra 1: User đã hoàn tất đăng ký chưa?
+    if (user.verified) {
       return res.status(400).json({
         success: false,
-        message: "Bạn cần xác thực email trước (gửi/verify OTP)",
+        message: "Tài khoản này đã hoàn tất đăng ký.",
       });
     }
 
+    // ✅ Kiểm tra 2: User đã xác thực OTP chưa?
+    // Nếu otpSignUp là true, tức là user chưa qua verifyOtp thành công.
+    if (user.otpSignUp) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn cần xác thực email (verify OTP) trước khi đặt mật khẩu.",
+      });
+    }
+
+    // Hoàn tất đăng ký
     user.name = name;
     user.password = await bcrypt.hash(password, 10);
-    user.verified = true;
-    user.otpSignUp = false;
+    user.verified = true; // Cờ hoàn tất đăng ký
+    // user.otpSignUp đã là false từ verifyOtp
     await user.save();
 
     return res.json({ success: true, message: "Đăng ký thành công" });
