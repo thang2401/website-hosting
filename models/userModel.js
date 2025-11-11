@@ -2,18 +2,27 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    name: String,
+    name: { type: String, trim: true },
     email: {
       type: String,
       unique: true,
       required: true,
+      lowercase: true,
+      trim: true,
     },
-    password: String,
-    profilePic: String,
-    role: { type: String, default: "GENERAL" },
-    otp: String,
-    otpExpires: Date,
-    otpSignUp: { type: Boolean, default: false }, // True = chưa hoàn tất signup
+    password: { type: String },
+    profilePic: { type: String, default: "" },
+
+    role: { type: String, enum: ["GENERAL", "ADMIN"], default: "GENERAL" },
+
+    otp: { type: String },
+    otpExpires: { type: Date },
+
+    // ✅ True = đã gửi OTP nhưng chưa hoàn tất đăng ký
+    otpSignUp: { type: Boolean, default: false },
+
+    // ✅ True = tài khoản đã xác minh OTP & hoàn tất mật khẩu
+    verified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

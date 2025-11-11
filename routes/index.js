@@ -2,11 +2,6 @@ const express = require("express");
 
 const router = express.Router();
 
-const {
-  sendOtpToSignUpController,
-  finalSignUpController,
-} = require("../controller/user/userSignUp");
-
 // ... (Các imports khác)
 
 const userSignInController = require("../controller/user/userSignIn");
@@ -47,6 +42,15 @@ const {
   verifyOTP,
 } = require("../controller/forgotpass/forgotPasswordController");
 const { changePassword } = require("../controller/user/changePass");
+const {
+  sendOtpForSignup,
+  verifyOtp,
+  setPassword,
+} = require("../controller/user/userSignUp");
+
+router.post("/send-otp-to-signup", sendOtpForSignup);
+router.post("/verify-otp", verifyOtp);
+router.post("/set-password", setPassword);
 
 // DÒNG BỊ LỖI ĐÃ ĐƯỢC LOẠI BỎ: const verifyOTPController = require("../controller/user/verifyOTPController");
 
@@ -54,8 +58,7 @@ const { changePassword } = require("../controller/user/changePass");
 // AUTH & USER
 // ============================================================
 // --- ROUTES ĐĂNG KÝ MỚI ---
-router.post("/send-otp-to-signup", sendOtpToSignUpController);
-router.post("/final-signup", finalSignUpController);
+
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);
 router.get("/userLogout", userLogout);
