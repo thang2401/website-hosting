@@ -1,5 +1,5 @@
-const userModel = require("../models/userModel");
-const { sendOTP } = require("../utils/sendOTP");
+const userModel = require("../../models/userModel");
+const { sendOTP } = require("../../utils/sendOTP");
 const bcrypt = require("bcryptjs");
 
 const sendOtpToSignUpController = async (req, res) => {
