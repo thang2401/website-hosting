@@ -19,7 +19,7 @@ const app = express();
 // =======================
 // 1. CORS chuẩn cho React
 // =======================
-const allowedOrigin = "https://domanhhung.id.vn";
+const allowedOrigin = ["https://domanhhung.id.vn", "http://localhost:3000"];
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", allowedOrigin);
   res.header(
