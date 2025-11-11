@@ -13,6 +13,7 @@ const useragent = require("useragent");
 require("dotenv").config();
 const connectDB = require("./config/db");
 const router = require("./routes");
+const vnpayRouter = require("./routes/vnpay");
 
 const app = express();
 
@@ -126,7 +127,7 @@ app.use(
 // 5. Routes
 // =======================
 app.use("/api", router);
-
+app.use("/api/vnpay", vnpayRouter);
 // =======================
 // 6. Xử lý lỗi toàn cục
 // =======================

@@ -3,11 +3,15 @@ const addToCartModel = require("../../models/cartProduct");
 const addToCartController = async (req, res) => {
   try {
     const { productId } = req?.body;
-    const currentUser = req.userId;
+    const currentUser = req.userId; // ID người dùng hiện tại
 
-    const isProductAvailable = await addToCartModel.findOne({ productId });
+    // *** Đã Sửa: Kiểm tra cả productId VÀ userId ***
+    const isProductAvailable = await addToCartModel.findOne({
+      productId: productId,
+      userId: currentUser,
+    });
 
-    console.log("isProductAvailabl   ", isProductAvailable);
+    console.log("isProductAvailabl   ", isProductAvailable);
 
     if (isProductAvailable) {
       return res.json({
