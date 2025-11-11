@@ -45,15 +45,15 @@ app.use(cookieParser());
 // =======================
 // 3. Rate-limit
 // =======================
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 phút
-  max: 100,
-  message: {
-    success: false,
-    message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
-  },
-});
-app.use("/api", limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 phút
+//   max: 100,
+//   message: {
+//     success: false,
+//     message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
+//   },
+// });
+// app.use("/api", limiter);
 
 // =======================
 // 3.5 WAF cơ bản
