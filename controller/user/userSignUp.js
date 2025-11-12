@@ -8,7 +8,7 @@ async function userSignUpController(req, res) {
     function isStrongPassword(password) {
       // Regex yêu cầu độ dài >= 6. (Giữ nguyên regex, chỉ thay đổi kiểm tra độ dài cứng bên dưới)
       const strongPasswordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{6,}$/;
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{12,}$/;
       return strongPasswordRegex.test(password);
     }
 
