@@ -20,9 +20,21 @@ app.set("trust proxy", true);
 // =======================
 // 1. CORS chuẩn cho React
 // =======================
-const allowedOrigin = ["https://domanhhung.id.vn"];
+const allowedOrigin = [
+  "https://domanhhung.id.vn",
+  "https://api.domanhhung.id.vn",
+]; // Thêm domain API
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", allowedOrigin[0]); // Chỉ cho phép 1 Origin
+  const origin = req.headers.origin;
+
+  // Kiểm tra xem Origin của request có trong danh sách được phép không
+  if (allowedOrigin.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else {
+    // Cho phép origin chính thức nếu không có origin header (thường dùng cho các công cụ)
+    res.header("Access-Control-Allow-Origin", allowedOrigin[0]);
+  }
+
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
@@ -30,10 +42,10 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Credentials", "true");
 
+  // Xử lý Preflight Request (OPTIONS)
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
-
 // =======================
 // 2. Middleware bảo mật (Tăng cường CSP)
 // =======================
@@ -43,6 +55,17 @@ app.use(
       maxAge: 31536000, // 1 năm (bằng giây)
       includeSubDomains: true,
       preload: true,
+    },
+    contentSecurityPolicy: {
+      directives: {
+        // ... (các directives khác)
+        connectSrc: [
+          "'self'",
+          "https://domanhhung.id.vn",
+          "https://api.domanhhung.id.vn",
+        ], // <-- Đã thêm domain API
+        upgradeInsecureRequests: [],
+      },
     },
     frameguard: true, // Tăng cường bảo mật: Content Security Policy (Chống XSS)
     contentSecurityPolicy: {
