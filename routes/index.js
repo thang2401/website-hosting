@@ -33,8 +33,8 @@ const ConfirmPayment = require("../controller/user/confirm-payment");
 const getAllOrders = require("../controller/user/getAllOrders");
 const MyOder = require("../controller/user/Oder");
 const deleteOrder = require("../controller/user/deleteOrder");
-import twoFaSetupController from "../controller/user/twoFaSetupController";
-import twoFaVerifyController from "../controller/user/twoFaVerifyController";
+const twoFaSetupController = require("../controller/user/twoFaSetupController");
+const twoFaVerifyController = require("../controller/user/twoFaVerifyController");
 
 const searchProduct = require("../controller/product/searchProduct");
 const filterProductController = require("../controller/product/filterProduct");
