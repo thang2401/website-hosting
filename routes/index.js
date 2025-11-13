@@ -33,6 +33,8 @@ const ConfirmPayment = require("../controller/user/confirm-payment");
 const getAllOrders = require("../controller/user/getAllOrders");
 const MyOder = require("../controller/user/Oder");
 const deleteOrder = require("../controller/user/deleteOrder");
+import twoFaSetupController from "../controller/user/twoFaSetupController";
+import twoFaVerifyController from "../controller/user/twoFaVerifyController";
 
 const searchProduct = require("../controller/product/searchProduct");
 const filterProductController = require("../controller/product/filterProduct");
@@ -104,5 +106,9 @@ const deleteOrderController = require("../controller/user/AdminDeleteOder");
 router.delete("/delete-orders/:id", deleteOrderController);
 
 // DÒNG BỊ LỖI TRÙNG LẶP ĐÃ ĐƯỢC LOẠI BỎ: router.post("/verify-otp", verifyOTPController);
+router.get("/2fa/setup", authToken, twoFaSetupController);
+
+// Admin Verification - Kích hoạt 2FA
+router.post("/2fa/verify", authToken, twoFaVerifyController);
 
 module.exports = router;

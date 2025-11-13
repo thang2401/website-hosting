@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -23,7 +22,7 @@ app.set("trust proxy", true);
 // =======================
 const allowedOrigin = ["https://domanhhung.id.vn"];
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", allowedOrigin);
+  res.header("Access-Control-Allow-Origin", allowedOrigin[0]); // Chỉ cho phép 1 Origin
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
@@ -36,29 +35,53 @@ app.use((req, res, next) => {
 });
 
 // =======================
-// 2. Middleware bảo mật
+// 2. Middleware bảo mật (Tăng cường CSP)
 // =======================
-app.use(helmet());
+app.use(
+  helmet({
+    hsts: {
+      maxAge: 31536000, // 1 năm (bằng giây)
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: true, // Tăng cường bảo mật: Content Security Policy (Chống XSS)
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"], // Mặc định chỉ cho phép từ domain hiện tại
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"], // Cần điều chỉnh nếu dùng script CDN/Inline
+        styleSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https://images.unsplash.com",
+          "https://trusted-storage.com",
+        ],
+        connectSrc: ["'self'", allowedOrigin[0]], // Cho phép kết nối API giữa client và server
+        upgradeInsecureRequests: [], // Yêu cầu trình duyệt tự động chuyển HTTP sang HTTPS
+      },
+    },
+  })
+);
 app.use(mongoSanitize());
 app.use(xss());
 app.use(express.json({ limit: "10kb" }));
-app.use(cookieParser());
+app.use(cookieParser()); // Giữ nguyên để dễ dàng thêm bảo mật cookie sau
 
 // =======================
 // 3. Rate-limit
 // =======================
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 phút
-//   max: 100,
-//   message: {
-//     success: false,
-//     message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
-//   },
-// });
-// app.use("/api", limiter);
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 phút
+  max: 100,
+  message: {
+    success: false,
+    message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
+  },
+});
+app.use("/api", limiter);
 
 // =======================
-// 3.5 WAF cơ bản
+// 3.5 WAF cơ bản (Mở rộng)
 // =======================
 const logDir = path.join(__dirname, "logs");
 const fs = require("fs");
@@ -86,18 +109,28 @@ const logger = winston.createLogger({
 });
 
 app.use((req, res, next) => {
+  // Mở rộng các mẫu SQLi, LFI/RFI
   const suspiciousPatterns = [
     "<script>",
     "DROP TABLE",
     "UNION SELECT",
     "1=1",
     "alert(",
+    "SELECT * FROM", // SQL Injection
+    "sleep(", // Time-based SQLi
+    "file_get_contents(", // LFI/RFI
+    "passwd", // LFI/RFI (tìm kiếm file nhạy cảm)
+    "\\.\\./", // Path traversal
   ];
   const bodyString = JSON.stringify(req.body || {});
   const urlString = req.originalUrl;
+  const queryCheck = JSON.stringify(req.query || {}); // Kiểm tra query string
 
   const isSuspicious = suspiciousPatterns.some(
-    (pattern) => bodyString.includes(pattern) || urlString.includes(pattern)
+    (pattern) =>
+      bodyString.includes(pattern) ||
+      urlString.includes(pattern) ||
+      queryCheck.includes(pattern)
   );
 
   if (isSuspicious) {
