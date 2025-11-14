@@ -21,7 +21,7 @@ async function userSignInController(req, res) {
     console.log("📌 Đang tìm user với email:", email);
 
     const user = await userModel
-      .findOne({ email })
+      .findOne({ email: email.toLowerCase() })
       .select("+password +twoFaSecret")
       .catch((err) => {
         console.log("❌ Lỗi MongoDB:", err);
