@@ -15,13 +15,27 @@ async function userSignInController(req, res) {
       throw new Error("Vui lòng cung mật khẩu");
     }
 
-    // Cần lấy cả password và twoFaSecret (đã select: false trong model)
+    console.log("====================================");
+    console.log("📌 BODY GỬI TỪ CLIENT:", req.body);
+
+    console.log("📌 Đang tìm user với email:", email);
+
     const user = await userModel
       .findOne({ email })
-      .select("+password +twoFaSecret");
+      .select("+password +twoFaSecret")
+      .catch((err) => {
+        console.log("❌ Lỗi MongoDB:", err);
+      });
 
     if (!user) {
-      throw new Error("Người dùng không tồn tại");
+      console.log("❌ Không tìm thấy user trong DB.");
+    } else {
+      console.log("✅ User tìm được:", {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        isTwoFaEnabled: user.isTwoFaEnabled,
+      });
     }
 
     // 1. Xác thực mật khẩu
