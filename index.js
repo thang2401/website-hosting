@@ -23,15 +23,13 @@ app.set("trust proxy", true);
 const allowedOrigin = [
   "https://domanhhung.id.vn",
   "https://api.domanhhung.id.vn",
-]; // Thêm domain API
+];
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  // Kiểm tra xem Origin của request có trong danh sách được phép không
   if (allowedOrigin.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   } else {
-    // Cho phép origin chính thức nếu không có origin header (thường dùng cho các công cụ)
     res.header("Access-Control-Allow-Origin", allowedOrigin[0]);
   }
 
@@ -42,7 +40,6 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Credentials", "true");
 
-  // Xử lý Preflight Request (OPTIONS)
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
@@ -52,26 +49,25 @@ app.use((req, res, next) => {
 app.use(
   helmet({
     hsts: {
-      maxAge: 31536000, // 1 năm (bằng giây)
+      maxAge: 31536000,
       includeSubDomains: true,
       preload: true,
     },
     contentSecurityPolicy: {
       directives: {
-        // ... (các directives khác)
         connectSrc: [
           "'self'",
           "https://domanhhung.id.vn",
           "https://api.domanhhung.id.vn",
-        ], // <-- Đã thêm domain API
+        ],
         upgradeInsecureRequests: [],
       },
     },
-    frameguard: true, // Tăng cường bảo mật: Content Security Policy (Chống XSS)
+    frameguard: true, // Security Policy (Chống XSS)
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"], // Mặc định chỉ cho phép từ domain hiện tại
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"], // Cần điều chỉnh nếu dùng script CDN/Inline
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"],
         imgSrc: [
           "'self'",
@@ -79,8 +75,8 @@ app.use(
           "https://images.unsplash.com",
           "https://trusted-storage.com",
         ],
-        connectSrc: ["'self'", allowedOrigin[0]], // Cho phép kết nối API giữa client và server
-        upgradeInsecureRequests: [], // Yêu cầu trình duyệt tự động chuyển HTTP sang HTTPS
+        connectSrc: ["'self'", allowedOrigin[0]],
+        upgradeInsecureRequests: [],
       },
     },
   })
@@ -88,7 +84,7 @@ app.use(
 app.use(mongoSanitize());
 app.use(xss());
 app.use(express.json({ limit: "10kb" }));
-app.use(cookieParser()); // Giữ nguyên để dễ dàng thêm bảo mật cookie sau
+app.use(cookieParser());
 
 // =======================
 // 3. Rate-limit
@@ -132,7 +128,6 @@ const logger = winston.createLogger({
 });
 
 app.use((req, res, next) => {
-  // Mở rộng các mẫu SQLi, LFI/RFI
   const suspiciousPatterns = [
     "<script>",
     "DROP TABLE",
