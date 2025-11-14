@@ -1,107 +1,82 @@
-const bcrypt = require("bcryptjs");
 const userModel = require("../../models/userModel");
-const jwt = require("jsonwebtoken");
-const speakeasy = require("speakeasy"); // Import thư viện 2FA
+const bcrypt = require("bcryptjs");
 
-async function userSignInController(req, res) {
+async function userSignUpController(req, res) {
   try {
-    // Thêm twoFactorToken vào destructuring
-    const { email, password, twoFactorToken } = req.body;
+    const { email, password, name } = req.body;
 
+    function isStrongPassword(password) {
+      // Regex yêu cầu độ dài >= 6. (Giữ nguyên regex, chỉ thay đổi kiểm tra độ dài cứng bên dưới)
+      const strongPasswordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]).{12,}$/;
+      return strongPasswordRegex.test(password);
+    }
+
+    const user = await userModel.findOne({ email });
+    if (user) {
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "Tài khoản đã tồn tại.",
+      });
+    }
+
+    // Validate input
     if (!email) {
-      throw new Error("Vui lòng cung email");
+      return res
+        .status(400)
+        .json({ success: false, error: true, message: "Vui lòng nhập email" });
     }
     if (!password) {
-      throw new Error("Vui lòng cung mật khẩu");
-    }
-
-    console.log("====================================");
-    console.log("📌 BODY GỬI TỪ CLIENT:", req.body);
-
-    console.log("📌 Đang tìm user với email:", email);
-
-    const user = await userModel
-      .findOne({ email: email.toLowerCase() })
-      .select("+password +twoFaSecret")
-      .catch((err) => {
-        console.log("❌ Lỗi MongoDB:", err);
-      });
-
-    if (!user) {
-      console.log("❌ Không tìm thấy user trong DB.");
-    } else {
-      console.log("✅ User tìm được:", {
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-        isTwoFaEnabled: user.isTwoFaEnabled,
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message: "Vui lòng nhập mật khẩu",
       });
     }
-
-    // 1. Xác thực mật khẩu
-    const checkPassword = await bcrypt.compare(password, user.password);
-
-    if (checkPassword) {
-      // --- BƯỚC KIỂM TRA 2FA CHO ADMIN ĐÃ KÍCH HOẠT ---
-      if (user.role === "ADMIN" && user.isTwoFaEnabled) {
-        if (!twoFactorToken) {
-          // Lần đăng nhập đầu tiên: Yêu cầu mã 2FA
-          return res.status(401).json({
-            success: false,
-            requires2FA: true, // Cờ báo hiệu client cần gửi mã 2FA
-            message: "Yêu cầu mã xác thực 2FA.",
-          });
-        }
-
-        // Xác minh mã 2FA
-        const verified = speakeasy.totp.verify({
-          secret: user.twoFaSecret,
-          encoding: "base32",
-          token: twoFactorToken,
-          window: 1,
-        });
-
-        if (!verified) {
-          throw new Error("Mã 2FA không đúng!");
-        }
-      }
-      // --- KẾT THÚC KIỂM TRA 2FA ---
-
-      // 2. Nếu vượt qua mọi xác minh (kể cả 2FA), tạo JWT
-      const tokenData = {
-        _id: user._id,
-        email: user.email,
-        // Không đưa vai trò vào token nếu không cần thiết
-      };
-
-      const token = await jwt.sign(tokenData, process.env.TOKEN_SECRET_KEY, {
-        expiresIn: 60 * 60 * 8,
+    // 🛡️ ĐÃ CẬP NHẬT: Yêu cầu mật khẩu tối thiểu 12 ký tự
+    if (password.length < 12) {
+      return res.status(400).json({
+        success: false,
+        error: true,
+        // Cập nhật thông báo
+        message: "Mật khẩu phải trên 12 kí tự",
       });
-
-      const tokenOption = {
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
-      };
-
-      res
-        .cookie("token", token, tokenOption)
-        .status(200)
-        .json({
-          message: "Đăng nhập thành công!",
-          data: token,
-          success: true,
-          error: false,
-          user: {
-            _id: user._id,
-            email: user.email,
-            role: user.role,
-            isTwoFaEnabled: user.isTwoFaEnabled,
-          },
-        });
-    } else {
-      throw new Error("Mật khẩu không đúng!");
     }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        success: false,
+        error: true,
+        message:
+          "Mật khẩu phải bao gồm ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt",
+      });
+    }
+    if (!name) {
+      return res
+        .status(400)
+        .json({ success: false, error: true, message: "Vui lòng nhập tên" });
+    }
+
+    // Hash password
+    const salt = bcrypt.genSaltSync(10);
+    const hashPassword = bcrypt.hashSync(password, salt);
+
+    // Lưu user
+    const payload = {
+      ...req.body,
+      role: "GENERAL",
+      password: hashPassword,
+    };
+
+    const userData = new userModel(payload);
+    const saveUser = await userData.save();
+
+    res.status(201).json({
+      data: saveUser,
+      success: true,
+      error: false,
+      message: "Tạo tài khoản thành công!",
+    });
   } catch (err) {
     res.json({
       message: err.message || err,
@@ -111,4 +86,4 @@ async function userSignInController(req, res) {
   }
 }
 
-module.exports = userSignInController;
+module.exports = userSignUpController;
