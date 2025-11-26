@@ -5,14 +5,14 @@ dotenv.config();
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: "thang2401204@gmail.com",
+    pass: "boxh zpzy aeds ltsj",
   },
 });
 
 const sendOTP = async (email, otp) => {
   await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+    from: "thang2401204@gmail.com",
     to: email,
     subject: "Mã OTP đặt lại mật khẩu",
     text: `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
