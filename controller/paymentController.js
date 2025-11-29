@@ -22,14 +22,13 @@ const createPaymentUrl = async (req, res) => {
     const orderId = "DH_" + Date.now(); // Mã đơn hàng duy nhất
 
     // Lấy IP, ưu tiên IPv4 nếu là localhost
-    let ipAddr =
-      req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    let ipAddr = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     if (ipAddr && ipAddr.includes("::ffff:")) {
-        ipAddr = ipAddr.split("::ffff:")[1];
+      ipAddr = ipAddr.split("::ffff:")[1];
     }
     // Nếu vẫn là ::1, dùng 127.0.0.1
     if (ipAddr === "::1") {
-        ipAddr = "127.0.0.1";
+      ipAddr = "127.0.0.1";
     }
 
     // 3. Khởi tạo Params
@@ -41,10 +40,10 @@ const createPaymentUrl = async (req, res) => {
       vnp_CurrCode: "VND",
       vnp_TxnRef: orderId,
       // Đảm bảo mã hóa URL cho vnp_OrderInfo
-      vnp_OrderInfo: encodeURIComponent(orderInfo || "Thanh toan donhang"), 
+      vnp_OrderInfo: encodeURIComponent(orderInfo || "Thanh toan donhang"),
       vnp_OrderType: "other",
       // Đảm bảo là số nguyên trước khi nhân 100
-      vnp_Amount: parseInt(amount) * 100, 
+      vnp_Amount: parseInt(amount) * 100,
       vnp_ReturnUrl: returnUrl,
       vnp_IpAddr: ipAddr,
       vnp_CreateDate: createDate,
@@ -78,8 +77,6 @@ const createPaymentUrl = async (req, res) => {
   }
 };
 
----
-
 /**
  * @desc Xử lý kết quả trả về từ VNPAY (VNPay Return)
  * @route GET /api/payment/vnpay_return
@@ -88,7 +85,7 @@ const vnpayReturn = async (req, res) => {
   try {
     const vnp_Params = req.query;
     const secureHash = vnp_Params["vnp_SecureHash"];
-    
+
     // Loại bỏ các tham số không dùng để kiểm tra hash
     delete vnp_Params["vnp_SecureHash"];
     delete vnp_Params["vnp_SecureHashType"];
@@ -108,26 +105,35 @@ const vnpayReturn = async (req, res) => {
     // 3. So sánh chữ ký
     if (secureHash === signed) {
       // Chữ ký hợp lệ
-      
+
       const vnp_ResponseCode = vnp_Params["vnp_ResponseCode"];
-      
+
       // Xử lý đơn hàng tại đây: Cập nhật trạng thái đơn hàng trong Database
       // Mã 00: Thanh toán thành công
 
       if (vnp_ResponseCode === "00") {
         // THÀNH CÔNG: Chuyển hướng về trang Success
-        const successUrl = process.env.FRONTEND_SUCCESS_URL || "https://domanhhung.id.vn/payment-success";
-        return res.redirect(`${successUrl}?orderId=${vnp_Params["vnp_TxnRef"]}&amount=${vnp_Params["vnp_Amount"]/100}`);
+        const successUrl =
+          process.env.FRONTEND_SUCCESS_URL ||
+          "https://domanhhung.id.vn/payment-success";
+        return res.redirect(
+          `${successUrl}?orderId=${vnp_Params["vnp_TxnRef"]}&amount=${
+            vnp_Params["vnp_Amount"] / 100
+          }`
+        );
       } else {
         // THẤT BẠI: Chuyển hướng về trang Failed
-        const failedUrl = process.env.FRONTEND_FAILED_URL || "https://domanhhung.id.vn/payment-failed";
+        const failedUrl =
+          process.env.FRONTEND_FAILED_URL ||
+          "https://domanhhung.id.vn/payment-failed";
         return res.redirect(`${failedUrl}?message=${vnp_ResponseCode}`);
       }
-      
     } else {
       // Chữ ký không hợp lệ
       console.error("Invalid signature:", secureHash);
-      const failedUrl = process.env.FRONTEND_FAILED_URL || "https://domanhhung.id.vn/payment-failed";
+      const failedUrl =
+        process.env.FRONTEND_FAILED_URL ||
+        "https://domanhhung.id.vn/payment-failed";
       return res.redirect(`${failedUrl}?message=INVALID_SIGNATURE`);
     }
   } catch (err) {
