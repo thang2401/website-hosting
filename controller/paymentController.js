@@ -8,30 +8,30 @@ const crypto = require("crypto");
  */
 const createPaymentUrl = async (req, res) => {
   try {
-    // 1. Lấy dữ liệu đầu vào
     const { amount, bankCode, orderInfo } = req.body;
 
-    // 2. Khai báo các biến cấu hình từ .env
+    // Cấu hình VNPay từ .env
     const vnp_TmnCode = process.env.VNP_TMN_CODE;
     const secretKey = process.env.VNP_HASH_SECRET;
     const vnpUrl = process.env.VNP_URL;
     const returnUrl = process.env.VNP_RETURN_URL;
 
-    // 3. Chuẩn bị dữ liệu thanh toán
-    const date = new Date();
-    const createDate = moment(date).format("YYYYMMDDHHmmss");
-    const orderId = "DH_" + Date.now(); // Mã đơn hàng duy nhất
+    const createDate = moment().format("YYYYMMDDHHmmss");
+    const orderId = "DH_" + Date.now();
 
-    // Xử lý IP Address: Ưu tiên IPv4 và xử lý ::1
+    // Xử lý IP
     let ipAddr = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    if (ipAddr && ipAddr.includes("::ffff:")) {
+    if (ipAddr && ipAddr.includes("::ffff:"))
       ipAddr = ipAddr.split("::ffff:")[1];
-    }
-    if (ipAddr === "::1") {
-      ipAddr = "127.0.0.1";
-    }
+    if (ipAddr === "::1") ipAddr = "127.0.0.1";
 
-    // 4. Khởi tạo Params
+    // ======= Sửa vnp_OrderInfo =======
+    let safeOrderInfo = orderInfo || "Thanh toan don hang";
+    // Loại bỏ ký tự đặc biệt / Unicode, chỉ giữ Latin + số + space
+    safeOrderInfo = safeOrderInfo.replace(/[^\w\s]/gi, "");
+    safeOrderInfo = encodeURIComponent(safeOrderInfo);
+
+    // Params thanh toán
     const vnp_Params = {
       vnp_Version: "2.1.0",
       vnp_Command: "pay",
@@ -39,34 +39,35 @@ const createPaymentUrl = async (req, res) => {
       vnp_Locale: "vn",
       vnp_CurrCode: "VND",
       vnp_TxnRef: orderId,
-      // Đảm bảo mã hóa URL cho vnp_OrderInfo để tránh lỗi ký tự đặc biệt
-      vnp_OrderInfo: encodeURIComponent(orderInfo || "Thanh toan donhang"),
+      vnp_OrderInfo: safeOrderInfo,
       vnp_OrderType: "other",
-      // Đảm bảo là số nguyên và nhân 100 (đơn vị VNPay là đồng)
-      vnp_Amount: parseInt(amount) * 100,
+      // Nhân 100 và làm tròn
+      vnp_Amount: Math.round(Number(amount)) * 100,
       vnp_ReturnUrl: returnUrl,
       vnp_IpAddr: ipAddr,
       vnp_CreateDate: createDate,
     };
 
-    if (bankCode) vnp_Params["vnp_BankCode"] = bankCode;
+    if (bankCode) vnp_Params.vnp_BankCode = bankCode;
 
-    // 5. Sắp xếp Params
-    // Các tham số phải được sắp xếp theo thứ tự bảng chữ cái để tạo chuỗi ký
-    const sortedParams = Object.keys(vnp_Params)
-      .sort()
-      .reduce((obj, key) => ((obj[key] = vnp_Params[key]), obj), {});
+    // Sắp xếp params theo chữ cái
+    const sortedKeys = Object.keys(vnp_Params).sort();
+    const sortedParams = {};
+    sortedKeys.forEach((key) => {
+      sortedParams[key] = vnp_Params[key];
+    });
 
-    // 6. Tạo chuỗi dữ liệu ký và chữ ký (Secure Hash)
-    const signData = qs.stringify(sortedParams, { encode: true });
+    // Tạo chuỗi ký HMAC đúng chuẩn VNPay
+    const signData = sortedKeys
+      .map((key) => `${key}=${sortedParams[key]}`)
+      .join("&");
     const hmac = crypto.createHmac("sha512", secretKey);
-    const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+    const vnp_SecureHash = hmac.update(signData).digest("hex");
+    sortedParams.vnp_SecureHash = vnp_SecureHash;
 
-    sortedParams["vnp_SecureHash"] = signed;
-
-    // 7. Tạo URL thanh toán cuối cùng
+    // Tạo URL thanh toán cuối cùng
     const paymentUrl = `${vnpUrl}?${qs.stringify(sortedParams, {
-      encode: true,
+      encode: false,
     })}`;
 
     res.json({ paymentUrl });
@@ -82,34 +83,26 @@ const createPaymentUrl = async (req, res) => {
  */
 const vnpayReturn = async (req, res) => {
   try {
-    const vnp_Params = req.query;
-    const secureHash = vnp_Params["vnp_SecureHash"];
+    const vnp_Params = { ...req.query };
+    const secureHash = vnp_Params.vnp_SecureHash;
 
-    // Loại bỏ các tham số không dùng để kiểm tra hash
-    delete vnp_Params["vnp_SecureHash"];
-    delete vnp_Params["vnp_SecureHashType"];
+    delete vnp_Params.vnp_SecureHash;
+    delete vnp_Params.vnp_SecureHashType;
 
     const secretKey = process.env.VNP_HASH_SECRET;
 
-    // 1. Sắp xếp Params để tạo chuỗi dữ liệu
-    const sortedParams = Object.keys(vnp_Params)
-      .sort()
-      .reduce((obj, key) => ((obj[key] = vnp_Params[key]), obj), {});
-
-    // 2. Tạo chữ ký để so sánh
-    const signData = qs.stringify(sortedParams, { encode: true });
+    // Sắp xếp và tạo chữ ký kiểm tra
+    const sortedKeys = Object.keys(vnp_Params).sort();
+    const sortedParams = {};
+    sortedKeys.forEach((key) => (sortedParams[key] = vnp_Params[key]));
+    const signData = sortedKeys
+      .map((key) => `${key}=${sortedParams[key]}`)
+      .join("&");
     const hmac = crypto.createHmac("sha512", secretKey);
-    const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+    const signed = hmac.update(signData).digest("hex");
 
-    // 3. So sánh chữ ký
     if (secureHash === signed) {
-      // Chữ ký hợp lệ
-
-      const vnp_ResponseCode = vnp_Params["vnp_ResponseCode"];
-
-      // >>> BƯỚC QUAN TRỌNG: XỬ LÝ DATABASE TẠI ĐÂY <<<
-      // Lấy vnp_TxnRef để tìm đơn hàng và cập nhật trạng thái
-
+      const vnp_ResponseCode = vnp_Params.vnp_ResponseCode;
       const frontendSuccessUrl =
         process.env.FRONTEND_SUCCESS_URL ||
         "https://domanhhung.id.vn/payment-success";
@@ -118,18 +111,15 @@ const vnpayReturn = async (req, res) => {
         "https://domanhhung.id.vn/payment-failed";
 
       if (vnp_ResponseCode === "00") {
-        // 00: Thanh toán thành công
         return res.redirect(
-          `${frontendSuccessUrl}?orderId=${vnp_Params["vnp_TxnRef"]}&amount=${
-            vnp_Params["vnp_Amount"] / 100
+          `${frontendSuccessUrl}?orderId=${vnp_Params.vnp_TxnRef}&amount=${
+            vnp_Params.vnp_Amount / 100
           }`
         );
       } else {
-        // Mã khác 00: Thanh toán thất bại hoặc lỗi giao dịch
         return res.redirect(`${frontendFailedUrl}?message=${vnp_ResponseCode}`);
       }
     } else {
-      // Chữ ký không hợp lệ
       const frontendFailedUrl =
         process.env.FRONTEND_FAILED_URL ||
         "https://domanhhung.id.vn/payment-failed";
