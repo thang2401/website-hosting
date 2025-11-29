@@ -19,6 +19,7 @@ app.set("trust proxy", true);
 
 // =======================
 // 1. CORS chuẩn cho React
+//chống domain khác gửi request lấy token
 // =======================
 const allowedOrigin = [
   "https://domanhhung.id.vn",
@@ -45,6 +46,7 @@ app.use((req, res, next) => {
 });
 // =======================
 // 2. Middleware bảo mật (Tăng cường CSP)
+
 // =======================
 app.use(
   helmet({
@@ -63,7 +65,7 @@ app.use(
         upgradeInsecureRequests: [],
       },
     },
-    frameguard: true, // Security Policy (Chống XSS)
+    frameguard: true, // (Chống XSS)
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -82,12 +84,13 @@ app.use(
   })
 );
 app.use(mongoSanitize());
-app.use(xss());
-app.use(express.json({ limit: "10kb" }));
+app.use(xss()); //Chống XSS trong input
+app.use(express.json({ limit: "10kb" })); //Chặn attacker gửi request body 5GB để làm sập server.
 app.use(cookieParser());
 
 // =======================
 // 3. Rate-limit
+//100 request / 15 phút
 // =======================
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
@@ -135,14 +138,14 @@ app.use((req, res, next) => {
     "1=1",
     "alert(",
     "SELECT * FROM", // SQL Injection
-    "sleep(", // Time-based SQLi
-    "file_get_contents(", // LFI/RFI
-    "passwd", // LFI/RFI (tìm kiếm file nhạy cảm)
-    "\\.\\./", // Path traversal
+    "sleep(",
+    "file_get_contents(",
+    "passwd",
+    "\\.\\./",
   ];
   const bodyString = JSON.stringify(req.body || {});
   const urlString = req.originalUrl;
-  const queryCheck = JSON.stringify(req.query || {}); // Kiểm tra query string
+  const queryCheck = JSON.stringify(req.query || {});
 
   const isSuspicious = suspiciousPatterns.some(
     (pattern) =>
