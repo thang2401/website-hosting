@@ -26,10 +26,9 @@ const createPaymentUrl = async (req, res) => {
     if (ipAddr === "::1") ipAddr = "127.0.0.1";
 
     // ======= Sửa vnp_OrderInfo =======
+    // Dùng Base64 để gửi Unicode, VNPay chấp nhận ký tự Latin + số + = + /
     let safeOrderInfo = orderInfo || "Thanh toan don hang";
-    // Loại bỏ ký tự đặc biệt / Unicode, chỉ giữ Latin + số + space
-    safeOrderInfo = safeOrderInfo.replace(/[^\w\s]/gi, "");
-    safeOrderInfo = encodeURIComponent(safeOrderInfo);
+    safeOrderInfo = Buffer.from(safeOrderInfo).toString("base64");
 
     // Params thanh toán
     const vnp_Params = {
@@ -41,7 +40,6 @@ const createPaymentUrl = async (req, res) => {
       vnp_TxnRef: orderId,
       vnp_OrderInfo: safeOrderInfo,
       vnp_OrderType: "other",
-      // Nhân 100 và làm tròn
       vnp_Amount: Math.round(Number(amount)) * 100,
       vnp_ReturnUrl: returnUrl,
       vnp_IpAddr: ipAddr,
@@ -101,28 +99,32 @@ const vnpayReturn = async (req, res) => {
     const hmac = crypto.createHmac("sha512", secretKey);
     const signed = hmac.update(signData).digest("hex");
 
+    const frontendSuccessUrl =
+      process.env.FRONTEND_SUCCESS_URL ||
+      "https://domanhhung.id.vn/payment-success";
+    const frontendFailedUrl =
+      process.env.FRONTEND_FAILED_URL ||
+      "https://domanhhung.id.vn/payment-failed";
+
     if (secureHash === signed) {
       const vnp_ResponseCode = vnp_Params.vnp_ResponseCode;
-      const frontendSuccessUrl =
-        process.env.FRONTEND_SUCCESS_URL ||
-        "https://domanhhung.id.vn/payment-success";
-      const frontendFailedUrl =
-        process.env.FRONTEND_FAILED_URL ||
-        "https://domanhhung.id.vn/payment-failed";
 
       if (vnp_ResponseCode === "00") {
+        // Giải mã orderInfo nếu cần
+        const decodedOrderInfo = Buffer.from(
+          vnp_Params.vnp_OrderInfo,
+          "base64"
+        ).toString("utf-8");
+
         return res.redirect(
           `${frontendSuccessUrl}?orderId=${vnp_Params.vnp_TxnRef}&amount=${
             vnp_Params.vnp_Amount / 100
-          }`
+          }&orderInfo=${encodeURIComponent(decodedOrderInfo)}`
         );
       } else {
         return res.redirect(`${frontendFailedUrl}?message=${vnp_ResponseCode}`);
       }
     } else {
-      const frontendFailedUrl =
-        process.env.FRONTEND_FAILED_URL ||
-        "https://domanhhung.id.vn/payment-failed";
       return res.redirect(`${frontendFailedUrl}?message=INVALID_SIGNATURE`);
     }
   } catch (err) {
