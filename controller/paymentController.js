@@ -11,7 +11,7 @@ const createPaymentUrl = async (req, res) => {
     // 1. Lấy dữ liệu đầu vào và kiểm tra tính hợp lệ
     const { amount, bankCode, orderInfo } = req.body;
 
-    // THÊM KIỂM TRA VALIDATION (QUAN TRỌNG): Đảm bảo amount không bị rỗng/NaN
+    // THÊM KIỂM TRA VALIDATION: Ngăn chặn amount rỗng/NaN gây lỗi 03
     if (!amount || isNaN(parseInt(amount)) || parseInt(amount) < 1) {
       return res
         .status(400)
@@ -24,10 +24,10 @@ const createPaymentUrl = async (req, res) => {
     const vnpUrl = process.env.VNP_URL;
     const returnUrl = process.env.VNP_RETURN_URL;
 
-    // DEBUG: Kiểm tra các biến môi trường bắt buộc
+    // DEBUG: Kiểm tra các biến môi trường bắt buộc có bị undefined không
     if (!vnp_TmnCode || !secretKey || !vnpUrl || !returnUrl) {
       console.error(
-        "VNPAY CONFIG ERROR: Thiếu một trong các biến môi trường bắt buộc (TMN_CODE, SECRET_KEY, URL, RETURN_URL)."
+        "VNPAY CONFIG ERROR: Thiếu một trong các biến môi trường bắt buộc."
       );
       return res
         .status(500)
@@ -58,7 +58,7 @@ const createPaymentUrl = async (req, res) => {
       vnp_TxnRef: orderId,
       vnp_OrderInfo: encodeURIComponent(orderInfo || "Thanh toan donhang"),
       vnp_OrderType: "other",
-      vnp_Amount: parseInt(amount) * 100,
+      vnp_Amount: parseInt(amount) * 100, // Đã được validate là số
       vnp_ReturnUrl: returnUrl,
       vnp_IpAddr: ipAddr,
       vnp_CreateDate: createDate,
@@ -75,10 +75,11 @@ const createPaymentUrl = async (req, res) => {
     const signData = qs.stringify(sortedParams, { encode: true });
 
     // 💡 CÔNG CỤ DEBUG CHỦ CHỐT 💡
-    console.log("==========================================");
-    console.log("DEBUG: Kiểm tra chuỗi dữ liệu ký (SIGN DATA):");
-    console.log(signData); // Kiểm tra chuỗi này
-    console.log("==========================================");
+    // In ra chuỗi này, nếu có tham số bắt buộc bị rỗng, đó chính là lỗi 03.
+    console.log("=================================================");
+    console.log("DEBUG: LỖI 03 NẰM Ở ĐÂY - CHUỖI DỮ LIỆU KÝ (SIGN DATA):");
+    console.log(signData);
+    console.log("=================================================");
 
     const hmac = crypto.createHmac("sha512", secretKey);
     const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
@@ -99,54 +100,57 @@ const createPaymentUrl = async (req, res) => {
 
 /**
  * @desc Xử lý kết quả trả về từ VNPAY (VNPay Return)
- * @route GET /api/payment/vnpay_return
  */
 const vnpayReturn = async (req, res) => {
   try {
-    const vnp_Params = { ...req.query };
-    const secureHash = vnp_Params.vnp_SecureHash;
+    const vnp_Params = req.query;
+    const secureHash = vnp_Params["vnp_SecureHash"];
 
-    delete vnp_Params.vnp_SecureHash;
-    delete vnp_Params.vnp_SecureHashType;
+    // Loại bỏ các tham số không dùng để kiểm tra hash
+    delete vnp_Params["vnp_SecureHash"];
+    delete vnp_Params["vnp_SecureHashType"];
 
     const secretKey = process.env.VNP_HASH_SECRET;
 
-    // Sắp xếp và tạo chữ ký kiểm tra
-    const sortedKeys = Object.keys(vnp_Params).sort();
-    const sortedParams = {};
-    sortedKeys.forEach((key) => (sortedParams[key] = vnp_Params[key]));
-    const signData = sortedKeys
-      .map((key) => `${key}=${sortedParams[key]}`)
-      .join("&");
+    // 1. Sắp xếp Params
+    const sortedParams = Object.keys(vnp_Params)
+      .sort()
+      .reduce((obj, key) => ((obj[key] = vnp_Params[key]), obj), {});
+
+    // 2. Tạo chữ ký để so sánh
+    const signData = qs.stringify(sortedParams, { encode: true });
     const hmac = crypto.createHmac("sha512", secretKey);
-    const signed = hmac.update(signData).digest("hex");
+    const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
 
-    const frontendSuccessUrl =
-      process.env.FRONTEND_SUCCESS_URL ||
-      "https://domanhhung.id.vn/payment-success";
-    const frontendFailedUrl =
-      process.env.FRONTEND_FAILED_URL ||
-      "https://domanhhung.id.vn/payment-failed";
-
+    // 3. So sánh chữ ký
     if (secureHash === signed) {
-      const vnp_ResponseCode = vnp_Params.vnp_ResponseCode;
+      // Chữ ký hợp lệ
+
+      const vnp_ResponseCode = vnp_Params["vnp_ResponseCode"];
+
+      // Xử lý database tại đây
+
+      const frontendSuccessUrl =
+        process.env.FRONTEND_SUCCESS_URL ||
+        "https://domanhhung.id.vn/payment-success";
+      const frontendFailedUrl =
+        process.env.FRONTEND_FAILED_URL ||
+        "https://domanhhung.id.vn/payment-failed";
 
       if (vnp_ResponseCode === "00") {
-        // Giải mã orderInfo nếu cần
-        const decodedOrderInfo = Buffer.from(
-          vnp_Params.vnp_OrderInfo,
-          "base64"
-        ).toString("utf-8");
-
         return res.redirect(
-          `${frontendSuccessUrl}?orderId=${vnp_Params.vnp_TxnRef}&amount=${
-            vnp_Params.vnp_Amount / 100
-          }&orderInfo=${encodeURIComponent(decodedOrderInfo)}`
+          `${frontendSuccessUrl}?orderId=${vnp_Params["vnp_TxnRef"]}&amount=${
+            vnp_Params["vnp_Amount"] / 100
+          }`
         );
       } else {
         return res.redirect(`${frontendFailedUrl}?message=${vnp_ResponseCode}`);
       }
     } else {
+      // Chữ ký không hợp lệ
+      const frontendFailedUrl =
+        process.env.FRONTEND_FAILED_URL ||
+        "https://domanhhung.id.vn/payment-failed";
       return res.redirect(`${frontendFailedUrl}?message=INVALID_SIGNATURE`);
     }
   } catch (err) {

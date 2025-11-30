@@ -19,12 +19,13 @@ app.set("trust proxy", true);
 
 // =======================
 // 1. CORS chuẩn cho React
-//chống domain khác gửi request lấy token
 // =======================
 const allowedOrigin = [
   "https://domanhhung.id.vn",
   "https://api.domanhhung.id.vn",
 ];
+const vnpayDomain = "https://sandbox.vnpayment.vn"; // Thêm domain VNPay
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
@@ -33,7 +34,6 @@ app.use((req, res, next) => {
   } else {
     res.header("Access-Control-Allow-Origin", allowedOrigin[0]);
   }
-
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
@@ -44,9 +44,9 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
-// =======================
-// 2. Middleware bảo mật (Tăng cường CSP)
 
+// =======================
+// 2. Middleware bảo mật (ĐÃ SỬA LỖI CSP)
 // =======================
 app.use(
   helmet({
@@ -55,42 +55,49 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
-    contentSecurityPolicy: {
-      directives: {
-        connectSrc: [
-          "'self'",
-          "https://domanhhung.id.vn",
-          "https://api.domanhhung.id.vn",
-        ],
-        upgradeInsecureRequests: [],
-      },
-    },
-    frameguard: true, // (Chống XSS)
+    frameguard: { action: "deny" }, // Chống clickjacking/XSS // Hợp nhất và sửa lỗi CSP
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://trusted-cdn.com"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://trusted-cdn.com",
+          vnpayDomain,
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://trusted-cdn.com",
+          vnpayDomain,
+        ],
         imgSrc: [
           "'self'",
           "data:",
           "https://images.unsplash.com",
           "https://trusted-storage.com",
+          vnpayDomain, // Cho phép tài nguyên hình ảnh từ VNPay
         ],
-        connectSrc: ["'self'", allowedOrigin[0]],
+        connectSrc: [
+          "'self'",
+          allowedOrigin[0],
+          "https://api.domanhhung.id.vn",
+          vnpayDomain,
+        ],
+        frameSrc: [vnpayDomain], // Quan trọng cho chuyển hướng VNPay
         upgradeInsecureRequests: [],
       },
+      reportOnly: false,
     },
   })
 );
 app.use(mongoSanitize());
 app.use(xss()); //Chống XSS trong input
-app.use(express.json({ limit: "10kb" })); //Chặn attacker gửi request body 5GB để làm sập server.
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 // =======================
 // 3. Rate-limit
-//100 request / 15 phút
 // =======================
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
@@ -137,7 +144,7 @@ app.use((req, res, next) => {
     "UNION SELECT",
     "1=1",
     "alert(",
-    "SELECT * FROM", // SQL Injection
+    "SELECT * FROM",
     "sleep(",
     "file_get_contents(",
     "passwd",
