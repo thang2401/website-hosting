@@ -46,7 +46,7 @@ app.use((req, res, next) => {
 });
 
 // =======================
-// 2. Middleware bảo mật (ĐÃ SỬA LỖI CSP)
+// 2. Middleware bảo mật (ĐÃ SỬA LỖI CSP CÚ PHÁP VÀ CHẶN NGUỒN)
 // =======================
 app.use(
   helmet({
@@ -55,7 +55,7 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
-    frameguard: { action: "deny" }, // Chống clickjacking/XSS // Hợp nhất và sửa lỗi CSP
+    frameguard: { action: "deny" },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -64,6 +64,7 @@ app.use(
           "'unsafe-inline'",
           "https://trusted-cdn.com",
           vnpayDomain,
+          "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
         ],
         styleSrc: [
           "'self'",
@@ -76,15 +77,16 @@ app.use(
           "data:",
           "https://images.unsplash.com",
           "https://trusted-storage.com",
-          vnpayDomain, // Cho phép tài nguyên hình ảnh từ VNPay
+          vnpayDomain,
         ],
         connectSrc: [
           "'self'",
           allowedOrigin[0],
           "https://api.domanhhung.id.vn",
           vnpayDomain,
+          "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
         ],
-        frameSrc: [vnpayDomain], // Quan trọng cho chuyển hướng VNPay
+        frameSrc: [vnpayDomain],
         upgradeInsecureRequests: [],
       },
       reportOnly: false,
@@ -92,7 +94,7 @@ app.use(
   })
 );
 app.use(mongoSanitize());
-app.use(xss()); //Chống XSS trong input
+app.use(xss());
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
@@ -100,7 +102,7 @@ app.use(cookieParser());
 // 3. Rate-limit
 // =======================
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 phút
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: {
     success: false,
