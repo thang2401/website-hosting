@@ -11,7 +11,7 @@ const createPaymentUrl = async (req, res) => {
     // 1. Lấy dữ liệu đầu vào và kiểm tra tính hợp lệ
     const { amount, bankCode, orderInfo } = req.body;
 
-    // THÊM KIỂM TRA VALIDATION: Ngăn chặn amount rỗng/NaN gây lỗi 03
+    // Ngăn chặn amount rỗng/NaN gây lỗi 03
     if (!amount || isNaN(parseInt(amount)) || parseInt(amount) < 1) {
       return res
         .status(400)
@@ -24,7 +24,7 @@ const createPaymentUrl = async (req, res) => {
     const vnpUrl = process.env.VNP_URL;
     const returnUrl = process.env.VNP_RETURN_URL;
 
-    // DEBUG: Kiểm tra các biến môi trường bắt buộc có bị undefined không
+    // DEBUG: Kiểm tra các biến môi trường bắt buộc
     if (!vnp_TmnCode || !secretKey || !vnpUrl || !returnUrl) {
       console.error(
         "VNPAY CONFIG ERROR: Thiếu một trong các biến môi trường bắt buộc."
@@ -66,19 +66,25 @@ const createPaymentUrl = async (req, res) => {
 
     if (bankCode) vnp_Params["vnp_BankCode"] = bankCode;
 
-    // 5. Sắp xếp Params
-    const sortedParams = Object.keys(vnp_Params)
-      .sort()
-      .reduce((obj, key) => ((obj[key] = vnp_Params[key]), obj), {});
+    // 5. Sắp xếp Params (Đã Sửa Lỗi [object Object])
+    const sortedKeys = Object.keys(vnp_Params).sort();
+
+    const sortedParams = {};
+    for (const key of sortedKeys) {
+      // Chuyển đổi tất cả các giá trị sang chuỗi (rất quan trọng)
+      let value = vnp_Params[key];
+      if (value !== null && typeof value !== "undefined") {
+        sortedParams[key] = String(value);
+      }
+    }
 
     // 6. Tạo chuỗi dữ liệu ký và chữ ký (Secure Hash)
     const signData = qs.stringify(sortedParams, { encode: true });
 
     // 💡 CÔNG CỤ DEBUG CHỦ CHỐT 💡
-    // In ra chuỗi này, nếu có tham số bắt buộc bị rỗng, đó chính là lỗi 03.
     console.log("=================================================");
-    console.log("DEBUG: LỖI 03 NẰM Ở ĐÂY - CHUỖI DỮ LIỆU KÝ (SIGN DATA):");
-    console.log(signData);
+    console.log("DEBUG: CHUỖI DỮ LIỆU KÝ (SIGN DATA):");
+    console.log(signData); // Đảm bảo chuỗi này không còn [object Object]
     console.log("=================================================");
 
     const hmac = crypto.createHmac("sha512", secretKey);
