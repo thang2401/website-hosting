@@ -54,7 +54,13 @@ router.post("/signup", userSignUpController);
 // AUTH & USER
 // ============================================================
 // --- ROUTES ĐĂNG KÝ MỚI ---
+const {
+  createMomoRequest,
+  momoIpn,
+} = require("../controller/paymentController");
 
+router.post("/create_momo_request", createMomoRequest);
+router.post("/momo_ipn", momoIpn);
 router.post("/signin", userSignInController);
 router.get("/user-details", authToken, userDetailsController);
 router.get("/userLogout", userLogout);
