@@ -24,26 +24,26 @@ const allowedOrigin = [
   "https://domanhhung.id.vn",
   "https://api.domanhhung.id.vn",
 ];
-const vnpayDomain = "https://sandbox.vnpayment.vn"; // Thêm domain VNPay
+// const vnpayDomain = "https://sandbox.vnpayment.vn"; // Thêm domain VNPay
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+// app.use((req, res, next) => {
+//   const origin = req.headers.origin;
 
-  if (allowedOrigin.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  } else {
-    res.header("Access-Control-Allow-Origin", allowedOrigin[0]);
-  }
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Credentials", "true");
+//   if (allowedOrigin.includes(origin)) {
+//     res.header("Access-Control-Allow-Origin", origin);
+//   } else {
+//     res.header("Access-Control-Allow-Origin", allowedOrigin[0]);
+//   }
+//   res.header(
+//     "Access-Control-Allow-Headers",
+//     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+//   );
+//   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+//   res.header("Access-Control-Allow-Credentials", "true");
 
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
+//   if (req.method === "OPTIONS") return res.sendStatus(200);
+//   next();
+// });
 
 // =======================
 // 2. Middleware bảo mật (ĐÃ SỬA LỖI CSP CÚ PHÁP VÀ CHẶN NGUỒN)
@@ -114,78 +114,78 @@ app.use(cookieParser());
 // =======================
 // 3.5 WAF cơ bản (Mở rộng)
 // =======================
-const logDir = path.join(__dirname, "logs");
-const fs = require("fs");
-if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+// const logDir = path.join(__dirname, "logs");
+// const fs = require("fs");
+// if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
 
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-    winston.format.printf(
-      (info) =>
-        `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
-    )
-  ),
-  transports: [
-    new winston.transports.File({
-      filename: path.join(logDir, "error.log"),
-      level: "error",
-    }),
-    new winston.transports.File({
-      filename: path.join(logDir, "combined.log"),
-    }),
-    new winston.transports.Console(),
-  ],
-});
+// const logger = winston.createLogger({
+//   level: "info",
+//   format: winston.format.combine(
+//     winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+//     winston.format.printf(
+//       (info) =>
+//         `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`
+//     )
+//   ),
+//   transports: [
+//     new winston.transports.File({
+//       filename: path.join(logDir, "error.log"),
+//       level: "error",
+//     }),
+//     new winston.transports.File({
+//       filename: path.join(logDir, "combined.log"),
+//     }),
+//     new winston.transports.Console(),
+//   ],
+// });
 
-app.use((req, res, next) => {
-  const suspiciousPatterns = [
-    "<script>",
-    "DROP TABLE",
-    "UNION SELECT",
-    "1=1",
-    "alert(",
-    "SELECT * FROM",
-    "sleep(",
-    "file_get_contents(",
-    "passwd",
-    "\\.\\./",
-  ];
-  const bodyString = JSON.stringify(req.body || {});
-  const urlString = req.originalUrl;
-  const queryCheck = JSON.stringify(req.query || {});
+// app.use((req, res, next) => {
+//   const suspiciousPatterns = [
+//     "<script>",
+//     "DROP TABLE",
+//     "UNION SELECT",
+//     "1=1",
+//     "alert(",
+//     "SELECT * FROM",
+//     "sleep(",
+//     "file_get_contents(",
+//     "passwd",
+//     "\\.\\./",
+//   ];
+//   const bodyString = JSON.stringify(req.body || {});
+//   const urlString = req.originalUrl;
+//   const queryCheck = JSON.stringify(req.query || {});
 
-  const isSuspicious = suspiciousPatterns.some(
-    (pattern) =>
-      bodyString.includes(pattern) ||
-      urlString.includes(pattern) ||
-      queryCheck.includes(pattern)
-  );
+//   const isSuspicious = suspiciousPatterns.some(
+//     (pattern) =>
+//       bodyString.includes(pattern) ||
+//       urlString.includes(pattern) ||
+//       queryCheck.includes(pattern)
+//   );
 
-  if (isSuspicious) {
-    const agent = useragent.parse(req.headers["user-agent"]);
-    logger.warn(
-      `WAF chặn truy cập nghi ngờ từ IP ${
-        req.ip
-      }, Trình duyệt: ${agent.toString()}, URL: ${req.originalUrl}`
-    );
-    return res.status(403).json({
-      success: false,
-      message: "Yêu cầu của bạn bị hệ thống chặn do nghi ngờ tấn công.",
-    });
-  }
-  next();
-});
+//   if (isSuspicious) {
+//     const agent = useragent.parse(req.headers["user-agent"]);
+//     logger.warn(
+//       `WAF chặn truy cập nghi ngờ từ IP ${
+//         req.ip
+//       }, Trình duyệt: ${agent.toString()}, URL: ${req.originalUrl}`
+//     );
+//     return res.status(403).json({
+//       success: false,
+//       message: "Yêu cầu của bạn bị hệ thống chặn do nghi ngờ tấn công.",
+//     });
+//   }
+//   next();
+// });
 
 // =======================
 // 4. Logging
 // =======================
-app.use(
-  morgan("combined", {
-    stream: { write: (message) => logger.info(message.trim()) },
-  })
-);
+// app.use(
+//   morgan("combined", {
+//     stream: { write: (message) => logger.info(message.trim()) },
+//   })
+// );
 
 // =======================
 // 5. Routes
@@ -195,14 +195,14 @@ app.use("/api/payment", paymentRouter);
 // =======================
 // 6. Xử lý lỗi toàn cục
 // =======================
-app.use((err, req, res, next) => {
-  logger.error(`${err.message} - ${req.originalUrl}`);
-  console.error("❌ Lỗi hệ thống:", err);
-  res.status(500).json({
-    success: false,
-    message: "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.",
-  });
-});
+// app.use((err, req, res, next) => {
+//   logger.error(`${err.message} - ${req.originalUrl}`);
+//   console.error("❌ Lỗi hệ thống:", err);
+//   res.status(500).json({
+//     success: false,
+//     message: "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.",
+//   });
+// });
 
 // =======================
 // 7. Kết nối DB + chạy server
