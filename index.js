@@ -191,7 +191,7 @@ app.use(
 // 5. Routes
 // =======================
 app.use("/api", router);
-app.use("/api/payment", paymentRouter);
+
 // =======================
 // 6. Xử lý lỗi toàn cục
 // =======================

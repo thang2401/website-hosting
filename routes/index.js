@@ -102,13 +102,13 @@ router.post("/reset-password", resetPassword);
 router.post("/change-password", authToken, changePassword);
 const isAdmin = require("../middleware/isAdmin");
 const deleteOrderController = require("../controller/user/AdminDeleteOder");
-// const {
-//   paypalCreateOrder,
-//   paypalCaptureOrder,
-// } = require("../controller/paymentController");
+const {
+  paypalCreateOrder,
+  paypalCaptureOrder,
+} = require("../controller/paymentController");
 
-// router.post("/paypal_create_order", paypalCreateOrder);
-// router.post("/paypal_capture_order", paypalCaptureOrder);
+router.post("/paypal_create_order", paypalCreateOrder);
+router.post("/paypal_capture_order", paypalCaptureOrder);
 
 router.delete("/delete-orders/:id", deleteOrderController);
 
