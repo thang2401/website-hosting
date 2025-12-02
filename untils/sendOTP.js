@@ -11,12 +11,16 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendOTP = async (email, otp) => {
-  await transporter.sendMail({
-    from: "thang2401204@gmail.com",
-    to: email,
-    subject: "Mã OTP đặt lại mật khẩu",
-    text: `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
-  });
+  try {
+    await transporter.sendMail({
+      from: "thang2401204@gmail.com",
+      to: email,
+      subject: "Mã OTP đặt lại mật khẩu",
+      text: `Mã OTP của bạn là: ${otp}. Mã có hiệu lực trong 5 phút.`,
+    });
+  } catch (err) {
+    console.error("❌ Lỗi SMTP:", err);
+  }
 };
 
 module.exports = { sendOTP };
