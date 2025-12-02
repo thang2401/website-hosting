@@ -1,5 +1,5 @@
 // controllers/paypalController.js (Chức năng tạo Order)
-const getPaypalAccessToken = require("../utils/paypal");
+const getPaypalAccessToken = require("../untils/paypal");
 // Giả định bạn có logic để lưu Order vào DB tại đây.
 // const Order = require('../models/Order');
 
@@ -91,21 +91,17 @@ exports.paypalCaptureOrder = async (req, res) => {
       });
     } else {
       // Thanh toán bị lỗi hoặc đang chờ
-      res
-        .status(400)
-        .json({
-          success: false,
-          message: "Giao dịch không hoàn tất hoặc đang chờ.",
-          captureData,
-        });
+      res.status(400).json({
+        success: false,
+        message: "Giao dịch không hoàn tất hoặc đang chờ.",
+        captureData,
+      });
     }
   } catch (error) {
     console.error("Lỗi Capture Order PayPal:", error.message);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Lỗi hệ thống khi chốt giao dịch PayPal.",
-      });
+    res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi chốt giao dịch PayPal.",
+    });
   }
 };
