@@ -48,68 +48,68 @@ app.use((req, res, next) => {
 // =======================
 // 2. Middleware bảo mật (ĐÃ SỬA LỖI CSP CÚ PHÁP VÀ CHẶN NGUỒN)
 // =======================
-app.use(
-  helmet({
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-    frameguard: { action: "deny" },
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://trusted-cdn.com",
-          vnpayDomain,
-          "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://trusted-cdn.com",
-          vnpayDomain,
-        ],
-        imgSrc: [
-          "'self'",
-          "data:",
-          "https://images.unsplash.com",
-          "https://trusted-storage.com",
-          vnpayDomain,
-        ],
-        connectSrc: [
-          "'self'",
-          allowedOrigin[0],
-          "https://api.domanhhung.id.vn",
-          vnpayDomain,
-          "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
-        ],
-        frameSrc: [vnpayDomain],
-        upgradeInsecureRequests: [],
-      },
-      reportOnly: false,
-    },
-  })
-);
-app.use(mongoSanitize());
-app.use(xss());
-app.use(express.json({ limit: "10kb" }));
+// app.use(
+//   helmet({
+//     hsts: {
+//       maxAge: 31536000,
+//       includeSubDomains: true,
+//       preload: true,
+//     },
+//     frameguard: { action: "deny" },
+//     contentSecurityPolicy: {
+//       directives: {
+//         defaultSrc: ["'self'"],
+//         scriptSrc: [
+//           "'self'",
+//           "'unsafe-inline'",
+//           "https://trusted-cdn.com",
+//           vnpayDomain,
+//           "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
+//         ],
+//         styleSrc: [
+//           "'self'",
+//           "'unsafe-inline'",
+//           "https://trusted-cdn.com",
+//           vnpayDomain,
+//         ],
+//         imgSrc: [
+//           "'self'",
+//           "data:",
+//           "https://images.unsplash.com",
+//           "https://trusted-storage.com",
+//           vnpayDomain,
+//         ],
+//         connectSrc: [
+//           "'self'",
+//           allowedOrigin[0],
+//           "https://api.domanhhung.id.vn",
+//           vnpayDomain,
+//           "https://static.cloudflareinsights.com", // <-- Thêm Cloudflare
+//         ],
+//         frameSrc: [vnpayDomain],
+//         upgradeInsecureRequests: [],
+//       },
+//       reportOnly: false,
+//     },
+//   })
+// );
+// app.use(mongoSanitize());
+// app.use(xss());
+// app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
 // =======================
 // 3. Rate-limit
 // =======================
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
-  },
-});
-app.use("/api", limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 100,
+//   message: {
+//     success: false,
+//     message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.",
+//   },
+// });
+// app.use("/api", limiter);
 
 // =======================
 // 3.5 WAF cơ bản (Mở rộng)
